@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+require_relative "../config/environment"
+
+$stdout.sync = true
+puts "[consumer] listening on queue #{Messaging::EventHandlers::QUEUE}"
+Messaging::RabbitmqConsumer.new(queue: Messaging::EventHandlers::QUEUE, handlers: Messaging::EventHandlers.build).start

@@ -3,7 +3,7 @@
 module Shared
   # Canal de mensageria — publica os eventos da Saga (RFC-005) a cada mudança de status.
   class WorkOrderEventNotifier
-    EVENTS = { awaiting_approval: "work_order.diagnosed" }.freeze
+    EVENTS = { awaiting_approval: "work_order.diagnosed", approved: "work_order.approved" }.freeze
 
     def initialize(publisher:)
       @publisher = publisher

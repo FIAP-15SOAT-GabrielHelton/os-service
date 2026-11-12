@@ -8,8 +8,7 @@ module WorkOrders
       def call(details)
         WorkOrder.call(details[:work_order]).merge(
           customer: customer(details[:customer]),
-          vehicle: vehicle(details[:vehicle]),
-          quote: quote(details[:quote])
+          vehicle: vehicle(details[:vehicle])
         )
       end
 
@@ -35,26 +34,6 @@ module WorkOrders
           model: vehicle.model,
           year: vehicle.year,
           color: vehicle.color
-        }
-      end
-
-      def quote(quote)
-        return nil unless quote
-
-        {
-          id: quote.id,
-          status: quote.status.to_s,
-          total: Shared::Presenters::Money.call(quote.total),
-          line_items: quote.line_items.map { |item| quote_line_item(item) }
-        }
-      end
-
-      def quote_line_item(item)
-        {
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: Shared::Presenters::Money.call(item.unit_price),
-          subtotal: Shared::Presenters::Money.call(item.subtotal)
         }
       end
     end

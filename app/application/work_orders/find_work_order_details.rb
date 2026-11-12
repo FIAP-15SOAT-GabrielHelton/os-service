@@ -5,11 +5,10 @@ require_relative "../shared/use_case"
 
 module WorkOrders
   class FindWorkOrderDetails < Shared::UseCase
-    def initialize(work_order_repository:, customer_repository:, vehicle_repository:, quote_repository:)
+    def initialize(work_order_repository:, customer_repository:, vehicle_repository:)
       @work_order_repository = work_order_repository
       @customer_repository = customer_repository
       @vehicle_repository = vehicle_repository
-      @quote_repository = quote_repository
     end
 
     private
@@ -21,8 +20,7 @@ module WorkOrders
       Shared::Result.success(
         work_order: work_order,
         customer: @customer_repository.find(work_order.customer_id),
-        vehicle: @vehicle_repository.find(work_order.vehicle_id),
-        quote: @quote_repository.find_by_work_order_id(work_order.id)
+        vehicle: @vehicle_repository.find(work_order.vehicle_id)
       )
     end
   end

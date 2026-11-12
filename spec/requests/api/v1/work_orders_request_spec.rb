@@ -279,9 +279,7 @@ RSpec.describe "Api::V1::WorkOrders", type: :request do
     post "/api/v1/work_orders/#{wo_id}/line_items",
          params: { item_type: "service", reference_id: service_id, quantity: 1 }, headers: auth_headers, as: :json
     patch "/api/v1/work_orders/#{wo_id}/diagnose", headers: auth_headers, as: :json
-    quote_id = Persistence::Quotes::QuoteRecord.find_by(work_order_id: wo_id).id
-    patch "/api/v1/quotes/#{quote_id}/send_to_customer", headers: auth_headers, as: :json
-    patch "/api/v1/quotes/#{quote_id}/approve", headers: auth_headers, as: :json
+    approve_via_event(wo_id)
     { wo_id: wo_id, vehicle_id: vehicle_id }
   end
 
@@ -294,9 +292,7 @@ RSpec.describe "Api::V1::WorkOrders", type: :request do
       post "/api/v1/work_orders/#{wo_id}/line_items",
            params: { item_type: "service", reference_id: service_id, quantity: 1 }, headers: auth_headers, as: :json
       patch "/api/v1/work_orders/#{wo_id}/diagnose", headers: auth_headers, as: :json
-      quote_id = Persistence::Quotes::QuoteRecord.find_by(work_order_id: wo_id).id
-      patch "/api/v1/quotes/#{quote_id}/send_to_customer", headers: auth_headers, as: :json
-      patch "/api/v1/quotes/#{quote_id}/approve", headers: auth_headers, as: :json
+      approve_via_event(wo_id)
       wo_id
     end
 
@@ -456,9 +452,7 @@ RSpec.describe "Api::V1::WorkOrders", type: :request do
     post "/api/v1/work_orders/#{wo_id}/line_items",
          params: { item_type: "service", reference_id: service2_id, quantity: 1 }, headers: auth_headers, as: :json
     patch "/api/v1/work_orders/#{wo_id}/diagnose", headers: auth_headers, as: :json
-    quote_id = Persistence::Quotes::QuoteRecord.find_by(work_order_id: wo_id).id
-    patch "/api/v1/quotes/#{quote_id}/send_to_customer", headers: auth_headers, as: :json
-    patch "/api/v1/quotes/#{quote_id}/approve", headers: auth_headers, as: :json
+    approve_via_event(wo_id)
     patch "/api/v1/work_orders/#{wo_id}/execute", headers: auth_headers, as: :json
     [ wo_id, first_line_item_id ]
   end

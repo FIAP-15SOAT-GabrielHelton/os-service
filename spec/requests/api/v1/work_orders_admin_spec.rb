@@ -103,7 +103,7 @@ RSpec.describe "Api::V1::WorkOrders admin views", type: :request do
   end
 
   describe "GET /api/v1/work_orders/:id (enriched)" do
-    it "returns work order with embedded customer, vehicle and quote" do
+    it "returns work order with embedded customer and vehicle" do
       wo = create_diagnosed_work_order
 
       get "/api/v1/work_orders/#{wo[:id]}", headers: auth_headers, as: :json
@@ -113,8 +113,7 @@ RSpec.describe "Api::V1::WorkOrders admin views", type: :request do
       expect(body).to include(
         "id" => wo[:id],
         "customer" => hash_including("name" => "John"),
-        "vehicle" => hash_including("license_plate" => "ABC1D23"),
-        "quote" => hash_including("status" => "created")
+        "vehicle" => hash_including("license_plate" => "ABC1D23")
       )
       expect(body["line_items"].size).to eq(2)
     end

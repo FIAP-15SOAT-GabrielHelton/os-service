@@ -58,6 +58,21 @@ services:
       db:
         condition: service_healthy
 
+  consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: bin/consumer
+    volumes:
+      - .:/app
+      - bundle_cache:/bundle
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   bundle_cache:

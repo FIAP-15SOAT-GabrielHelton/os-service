@@ -176,8 +176,7 @@ module Api
         WorkOrders::FindWorkOrderDetails.new(
           work_order_repository: work_order_repository,
           customer_repository: customer_repository,
-          vehicle_repository: vehicle_repository,
-          quote_repository: quote_repository
+          vehicle_repository: vehicle_repository
         )
       end
 
@@ -199,13 +198,8 @@ module Api
       def diagnose_work_order
         WorkOrders::DiagnoseWorkOrder.new(
           work_order_repository: work_order_repository,
-          create_quote: Quotes::CreateQuote.new(quote_repository: quote_repository),
           notifier: notifier
         )
-      end
-
-      def quote_repository
-        @quote_repository ||= Persistence::Quotes::ActiveRecordQuoteRepository.new
       end
 
       def add_line_item_use_case

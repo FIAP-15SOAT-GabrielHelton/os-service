@@ -191,7 +191,7 @@ RSpec.describe 'Api::V1::WorkOrders', openapi_spec: 'v1/swagger.json', type: :re
       security [ { bearerAuth: [] } ]
       parameter name: :id, in: :path, type: :integer, required: true
 
-      response '200', 'diagnosis finalized, quote generated' do
+      response '200', 'diagnosis finalized' do
         schema '$ref' => '#/components/schemas/WorkOrder'
         run_test!
       end

@@ -1,0 +1,28 @@
+# frozen_string_literal: true
+
+require "rails_helper"
+
+RSpec.describe Messaging::EventHandlers do
+  let(:use_case) { double("use_case", call: Shared::Result.success) } # rubocop:disable RSpec/VerifiedDoubles
+
+  it "approves the work order on quote.approved" do
+    allow(WorkOrders::ApproveWorkOrder).to receive(:new).and_return(use_case)
+
+    described_class.build.fetch("quote.approved").call({ "work_order_id" => 42 })
+
+    expect(use_case).to have_received(:call).with(id: 42)
+  end
+
+  it "rejects the work order on quote.rejected" do
+    allow(WorkOrders::RejectWorkOrder).to receive(:new).and_return(use_case)
+
+    described_class.build.fetch("quote.rejected").call({ "work_order_id" => 42 })
+
+    expect(use_case).to have_received(:call).with(id: 42)
+  end
+
+  it "raises when the use case fails so the message is not acked" do
+    expect { described_class.build.fetch("quote.approved").call({ "work_order_id" => 999_999 }) }
+      .to raise_error(RuntimeError, /not found/)
+  end
+end

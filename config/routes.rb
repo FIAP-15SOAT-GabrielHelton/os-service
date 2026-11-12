@@ -48,20 +48,7 @@ Rails.application.routes.draw do
         end
       end
 
-      resources :quotes, only: %i[show] do
-        member do
-          patch :send_to_customer
-          patch :approve
-          patch :reject
-        end
-      end
-
       get "tracking/:protocol", to: "tracking#show", as: :tracking
-
-      namespace :webhooks do
-        patch "quotes/:id/approve", to: "quotes#approve", as: :quote_approval
-        patch "quotes/:id/reject", to: "quotes#reject", as: :quote_rejection
-      end
     end
   end
 
