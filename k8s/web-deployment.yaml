@@ -15,6 +15,8 @@ spec:
       labels:
         app: oficina-mecanica-web
     spec:
+      # O pod não fala com a API do Kubernetes; sem token da service account montado.
+      automountServiceAccountToken: false
       containers:
         - name: web
           image: IMAGE_PLACEHOLDER

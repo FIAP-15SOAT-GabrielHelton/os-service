@@ -32,19 +32,20 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
 
-      # Mascara credenciais AWS e secrets do repositório nos logs deste job.
+      # Mascara as credenciais AWS nos logs deste job (secrets do repositório o GitHub já mascara).
       # Deve ser o primeiro step executável do job.
       - name: Mask Sensitive Credentials
+        env:
+          AWS_KEY_ID: ${{ inputs.aws_access_key_id }}
+          AWS_SECRET: ${{ inputs.aws_secret_access_key }}
+          AWS_TOKEN: ${{ inputs.aws_session_token }}
         run: |
-          echo "::add-mask::${{ inputs.aws_access_key_id }}"
-          echo "::add-mask::${{ inputs.aws_secret_access_key }}"
-          echo "::add-mask::${{ inputs.aws_session_token }}"
-          echo "::add-mask::${{ secrets.DB_PASSWORD }}"
-          echo "::add-mask::${{ secrets.SECRET_KEY_BASE }}"
-          echo "::add-mask::${{ secrets.QUOTE_WEBHOOK_TOKEN }}"
+          echo "::add-mask::$AWS_KEY_ID"
+          echo "::add-mask::$AWS_SECRET"
+          echo "::add-mask::$AWS_TOKEN"
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-access-key-id: ${{ inputs.aws_access_key_id }}
           aws-secret-access-key: ${{ inputs.aws_secret_access_key }}
@@ -72,7 +73,7 @@ jobs:
       # terraform_wrapper: false evita que o wrapper adicione texto extra ao stdout,
       # garantindo que terraform output -raw capture valores limpos no GITHUB_OUTPUT.
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: 1.5.7
           terraform_wrapper: false
@@ -123,14 +124,18 @@ jobs:
           RDS_HOST: ${{ steps.ssm.outputs.RDS_HOST }}
           CLUSTER_NAME: ${{ steps.ssm.outputs.EKS_CLUSTER_NAME }}
           IMAGE_URI: ${{ steps.docker.outputs.image_uri }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+          QUOTE_WEBHOOK_TOKEN: ${{ secrets.QUOTE_WEBHOOK_TOKEN }}
+          NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
         run: |
           aws eks update-kubeconfig --name "$CLUSTER_NAME" --region us-east-1
 
           # Secrets são base64-encoded pois o campo data: do K8s Secret exige isso
-          DB_PASSWORD_B64=$(echo -n "${{ secrets.DB_PASSWORD }}" | base64 -w 0)
-          SECRET_KEY_BASE_B64=$(echo -n "${{ secrets.SECRET_KEY_BASE }}" | base64 -w 0)
-          QUOTE_WEBHOOK_TOKEN_B64=$(echo -n "${{ secrets.QUOTE_WEBHOOK_TOKEN }}" | base64 -w 0)
-          NEW_RELIC_LICENSE_KEY_B64=$(echo -n "${{ secrets.NEW_RELIC_LICENSE_KEY }}" | base64 -w 0)
+          DB_PASSWORD_B64=$(echo -n "$DB_PASSWORD" | base64 -w 0)
+          SECRET_KEY_BASE_B64=$(echo -n "$SECRET_KEY_BASE" | base64 -w 0)
+          QUOTE_WEBHOOK_TOKEN_B64=$(echo -n "$QUOTE_WEBHOOK_TOKEN" | base64 -w 0)
+          NEW_RELIC_LICENSE_KEY_B64=$(echo -n "$NEW_RELIC_LICENSE_KEY" | base64 -w 0)
 
           # Substitui os placeholders dos manifests com os valores reais
           sed -i "s|DATABASE_HOST_PLACEHOLDER|$RDS_HOST|g" k8s/configmap.yaml
@@ -189,10 +194,14 @@ jobs:
 
       # Mascaramento repetido pois cada job tem seu próprio contexto de logs.
       - name: Mask Sensitive Credentials
+        env:
+          AWS_KEY_ID: ${{ inputs.aws_access_key_id }}
+          AWS_SECRET: ${{ inputs.aws_secret_access_key }}
+          AWS_TOKEN: ${{ inputs.aws_session_token }}
         run: |
-          echo "::add-mask::${{ inputs.aws_access_key_id }}"
-          echo "::add-mask::${{ inputs.aws_secret_access_key }}"
-          echo "::add-mask::${{ inputs.aws_session_token }}"
+          echo "::add-mask::$AWS_KEY_ID"
+          echo "::add-mask::$AWS_SECRET"
+          echo "::add-mask::$AWS_TOKEN"
 
       # Janela de 2h para uso/demonstração do ambiente.
       # ATENÇÃO: tokens AWS Academy expiram em ~4h desde o início da sessão.

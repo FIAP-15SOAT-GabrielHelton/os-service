@@ -27,7 +27,7 @@ module Auth
 
     def self.default_secret
       Rails.application.credentials.dig(:jwt, :secret) ||
-        ENV["JWT_SECRET"] ||
+        ENV.fetch("JWT_SECRET", nil) ||
         Rails.application.secret_key_base
     end
   end

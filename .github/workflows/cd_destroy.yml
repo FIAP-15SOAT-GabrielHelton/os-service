@@ -34,10 +34,14 @@ jobs:
 
       # Mascara credenciais AWS nos logs.
       - name: Mask Sensitive Credentials
+        env:
+          AWS_KEY_ID: ${{ inputs.aws_access_key_id }}
+          AWS_SECRET: ${{ inputs.aws_secret_access_key }}
+          AWS_TOKEN: ${{ inputs.aws_session_token }}
         run: |
-          echo "::add-mask::${{ inputs.aws_access_key_id }}"
-          echo "::add-mask::${{ inputs.aws_secret_access_key }}"
-          echo "::add-mask::${{ inputs.aws_session_token }}"
+          echo "::add-mask::$AWS_KEY_ID"
+          echo "::add-mask::$AWS_SECRET"
+          echo "::add-mask::$AWS_TOKEN"
 
       # Toda a lógica de destroy está centralizada na composite action.
       # Mascaramento, credenciais AWS, Terraform e kubectl são gerenciados por ela.
