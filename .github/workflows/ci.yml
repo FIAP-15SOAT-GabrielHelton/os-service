@@ -147,7 +147,7 @@ jobs:
       # Sem o secret (ex.: PR do Dependabot), a etapa é pulada.
       - name: SonarQube scan
         if: env.HAS_SONAR_TOKEN == 'true'
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0 (fixado por SHA, exigência do próprio Sonar)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
