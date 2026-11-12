@@ -4,6 +4,7 @@ require_relative "../shared/result"
 require_relative "../shared/use_case"
 
 module WorkOrders
+  # Disparado pelo evento execution.started.
   class ExecuteService < Shared::UseCase
     def initialize(work_order_repository:)
       @repository = work_order_repository

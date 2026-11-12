@@ -46,18 +46,19 @@ module WorkOrders
       service? && !finished_at.nil?
     end
 
-    def start!
+    # Os horários vêm do execution-service (evento execution.completed).
+    def start!(at = Time.current)
       raise InvalidTransition, "Only service items can be started" unless service?
       raise InvalidTransition, "Service has already been started" unless pending?
 
-      @started_at = Time.current
+      @started_at = at
     end
 
-    def finish!
+    def finish!(at = Time.current)
       raise InvalidTransition, "Only service items can be finished" unless service?
       raise InvalidTransition, "Service must be in progress to be finished" unless in_progress?
 
-      @finished_at = Time.current
+      @finished_at = at
     end
 
     def duration_minutes

@@ -21,6 +21,22 @@ RSpec.describe Messaging::EventHandlers do
     expect(use_case).to have_received(:call).with(id: 42)
   end
 
+  it "starts the work order on execution.started" do
+    allow(WorkOrders::ExecuteService).to receive(:new).and_return(use_case)
+
+    described_class.build.fetch("execution.started").call({ "work_order_id" => 42 })
+
+    expect(use_case).to have_received(:call).with(id: 42)
+  end
+
+  it "completes the work order on execution.completed, passing the service times" do
+    allow(WorkOrders::CompleteWorkOrder).to receive(:new).and_return(use_case)
+
+    described_class.build.fetch("execution.completed").call({ "work_order_id" => 42, "items" => [ { "line_item_id" => 1 } ] })
+
+    expect(use_case).to have_received(:call).with(id: 42, items: [ { "line_item_id" => 1 } ])
+  end
+
   it "raises when the use case fails so the message is not acked" do
     expect { described_class.build.fetch("quote.approved").call({ "work_order_id" => 999_999 }) }
       .to raise_error(RuntimeError, /not found/)

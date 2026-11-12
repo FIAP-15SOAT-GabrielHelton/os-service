@@ -8,13 +8,19 @@ module Messaging
     def self.build
       {
         "quote.approved" => ->(data) { run(approve_work_order, data) },
-        "quote.rejected" => ->(data) { run(reject_work_order, data) }
+        "quote.rejected" => ->(data) { run(reject_work_order, data) },
+        "execution.started" => ->(data) { run(WorkOrders::ExecuteService.new(work_order_repository: work_order_repository), data) },
+        "execution.completed" => ->(data) { run(complete_work_order, data, items: data.fetch("items")) }
       }
     end
 
-    def self.run(use_case, data)
-      result = use_case.call(id: data.fetch("work_order_id"))
+    def self.run(use_case, data, **extra)
+      result = use_case.call(id: data.fetch("work_order_id"), **extra)
       raise result.error if result.failure?
+    end
+
+    def self.complete_work_order
+      WorkOrders::CompleteWorkOrder.new(work_order_repository: work_order_repository, notifier: notifier)
     end
 
     def self.approve_work_order

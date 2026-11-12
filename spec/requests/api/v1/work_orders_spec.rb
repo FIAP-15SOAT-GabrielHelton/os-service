@@ -81,23 +81,6 @@ RSpec.describe 'Api::V1::WorkOrders', openapi_spec: 'v1/swagger.json', type: :re
     end
   end
 
-  path '/api/v1/work_orders/ready_to_execute' do
-    get 'List approved work orders ready to execute' do
-      tags 'Work Orders'
-      produces 'application/json'
-      security [ { bearerAuth: [] } ]
-
-      response '200', 'successful' do
-        schema type: :array, items: { '$ref' => '#/components/schemas/WorkOrder' }
-        run_test!
-      end
-
-      response '401', 'unauthorized' do
-        run_test!
-      end
-    end
-  end
-
   path '/api/v1/work_orders/{id}' do
     get 'Get work order by ID' do
       tags 'Work Orders'
@@ -230,52 +213,6 @@ RSpec.describe 'Api::V1::WorkOrders', openapi_spec: 'v1/swagger.json', type: :re
     end
   end
 
-  path '/api/v1/work_orders/{id}/execute' do
-    patch 'Start execution (status → in_progress)' do
-      tags 'Work Orders'
-      produces 'application/json'
-      security [ { bearerAuth: [] } ]
-      parameter name: :id, in: :path, type: :integer, required: true
-
-      response '200', 'execution started' do
-        schema '$ref' => '#/components/schemas/WorkOrder'
-        run_test!
-      end
-
-      response '422', 'unprocessable entity' do
-        schema '$ref' => '#/components/schemas/Error'
-        run_test!
-      end
-
-      response '401', 'unauthorized' do
-        run_test!
-      end
-    end
-  end
-
-  path '/api/v1/work_orders/{id}/complete' do
-    patch 'Complete work order (status → completed)' do
-      tags 'Work Orders'
-      produces 'application/json'
-      security [ { bearerAuth: [] } ]
-      parameter name: :id, in: :path, type: :integer, required: true
-
-      response '200', 'work order completed' do
-        schema '$ref' => '#/components/schemas/WorkOrder'
-        run_test!
-      end
-
-      response '422', 'unprocessable entity' do
-        schema '$ref' => '#/components/schemas/Error'
-        run_test!
-      end
-
-      response '401', 'unauthorized' do
-        run_test!
-      end
-    end
-  end
-
   path '/api/v1/work_orders/{id}/deliver' do
     patch 'Deliver work order to customer (status → delivered)' do
       tags 'Work Orders'
@@ -284,54 +221,6 @@ RSpec.describe 'Api::V1::WorkOrders', openapi_spec: 'v1/swagger.json', type: :re
       parameter name: :id, in: :path, type: :integer, required: true
 
       response '200', 'work order delivered' do
-        schema '$ref' => '#/components/schemas/WorkOrder'
-        run_test!
-      end
-
-      response '422', 'unprocessable entity' do
-        schema '$ref' => '#/components/schemas/Error'
-        run_test!
-      end
-
-      response '401', 'unauthorized' do
-        run_test!
-      end
-    end
-  end
-
-  path '/api/v1/work_orders/{id}/line_items/{line_item_id}/start' do
-    patch 'Start a service line item' do
-      tags 'Work Orders'
-      produces 'application/json'
-      security [ { bearerAuth: [] } ]
-      parameter name: :id, in: :path, type: :integer, required: true
-      parameter name: :line_item_id, in: :path, type: :integer, required: true
-
-      response '200', 'service started' do
-        schema '$ref' => '#/components/schemas/WorkOrder'
-        run_test!
-      end
-
-      response '422', 'unprocessable entity' do
-        schema '$ref' => '#/components/schemas/Error'
-        run_test!
-      end
-
-      response '401', 'unauthorized' do
-        run_test!
-      end
-    end
-  end
-
-  path '/api/v1/work_orders/{id}/line_items/{line_item_id}/finish' do
-    patch 'Finish a service line item (auto-completes the work order when last service finishes)' do
-      tags 'Work Orders'
-      produces 'application/json'
-      security [ { bearerAuth: [] } ]
-      parameter name: :id, in: :path, type: :integer, required: true
-      parameter name: :line_item_id, in: :path, type: :integer, required: true
-
-      response '200', 'service finished' do
         schema '$ref' => '#/components/schemas/WorkOrder'
         run_test!
       end

@@ -247,8 +247,8 @@ else
   )
   diagnose_wo    = WorkOrders::DiagnoseWorkOrder.new(work_order_repository: work_order_repo)
   execute_wo     = WorkOrders::ExecuteService.new(work_order_repository: work_order_repo)
-  start_line     = WorkOrders::StartLineItemService.new(work_order_repository: work_order_repo)
-  finish_line    = WorkOrders::FinishLineItemService.new(work_order_repository: work_order_repo)
+  # Conclusão: em produção vem do evento execution.completed (execution-service).
+  complete_wo    = WorkOrders::CompleteWorkOrder.new(work_order_repository: work_order_repo)
 
   # ---- WO #1 — received -----------------------------------------------------
   wo1 = seed_call!(create_wo,
@@ -290,9 +290,8 @@ else
   seed_call!(execute_wo, id: wo3.id)
   refreshed3 = work_order_repo.find(wo3.id)
   oil_item = refreshed3.line_items.find { |li| li.service? && li.name_snapshot == services[:oil].name }
-  seed_call!(start_line, work_order_id: wo3.id, line_item_id: oil_item.id)
 
-  # Update the started line item to have a realistic start time (30 minutes ago)
+  # Mark one service as started 30 minutes ago
   Persistence::WorkOrders::LineItemRecord.find(oil_item.id).update(
     started_at: 30.minutes.ago
   )
@@ -315,20 +314,13 @@ else
   seed_call!(approve_wo, id: wo4.id)
   seed_call!(execute_wo, id: wo4.id)
   refreshed4 = work_order_repo.find(wo4.id)
-  # Start and finish each service with realistic time durations
-  refreshed4.service_line_items.each_with_index do |item, idx|
-    seed_call!(start_line, work_order_id: wo4.id, line_item_id: item.id)
-    seed_call!(finish_line, work_order_id: wo4.id, line_item_id: item.id)
-
-    # Update timestamps to add realistic durations (20-40 minutes per service)
-    duration_minutes = (20 + idx * 10).minutes
-    started_at = 2.hours.ago
-    finished_at = started_at + duration_minutes
-    Persistence::WorkOrders::LineItemRecord.find(item.id).update(
-      started_at: started_at,
-      finished_at: finished_at
-    )
+  # Each service with a realistic duration (20-40 minutes), as execution-service would report
+  started_at = 2.hours.ago
+  service_times = refreshed4.service_line_items.each_with_index.map do |item, idx|
+    { "line_item_id" => item.id, "started_at" => started_at.iso8601,
+      "finished_at" => (started_at + (20 + idx * 10).minutes).iso8601 }
   end
+  seed_call!(complete_wo, id: wo4.id, items: service_times)
   wo4 = work_order_repo.find(wo4.id)
   work_orders_summary << { wo: wo4, customer: customers[:joao], vehicle: vehicles[:civic] }
   puts "Seed: created WO #{wo4.protocol} (#{wo4.status})."

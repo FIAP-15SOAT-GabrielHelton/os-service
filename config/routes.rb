@@ -31,20 +31,12 @@ Rails.application.routes.draw do
       end
 
       resources :work_orders, only: %i[index show create] do
-        collection do
-          get :ready_to_execute
-        end
-
         member do
           patch :assign
           patch :diagnose
           post :line_items, action: :add_line_item
           patch :reject
-          patch :execute
-          patch :complete
           patch :deliver
-          patch "line_items/:line_item_id/start", action: :start_line_item, as: :start_line_item
-          patch "line_items/:line_item_id/finish", action: :finish_line_item, as: :finish_line_item
         end
       end
 
