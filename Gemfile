@@ -82,4 +82,6 @@ end
 group :test do
   gem "shoulda-matchers", "~> 8.0"
   gem "simplecov", require: false
+  # BDD: roda arquivos .feature (Gherkin) dentro do RSpec
+  gem "turnip"
 end
