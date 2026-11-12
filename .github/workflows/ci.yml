@@ -118,6 +118,7 @@ jobs:
           --health-retries=5
 
     env:
+      HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
       RAILS_ENV: test
       COVERAGE: "1"
       DATABASE_HOST: localhost
@@ -128,6 +129,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -139,6 +142,20 @@ jobs:
 
       - name: Run tests
         run: bundle exec rspec
+
+      # Análise estática + cobertura no SonarQube Cloud. O quality gate reprovado falha o job.
+      # Sem o secret (ex.: PR do Dependabot), a etapa é pulada.
+      - name: SonarQube scan
+        if: env.HAS_SONAR_TOKEN == 'true'
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.organization=fiap-15soat-gabrielhelton
+            -Dsonar.projectKey=FIAP-15SOAT-GabrielHelton_os-service
+            -Dsonar.qualitygate.wait=true
 
       - name: Write coverage to job summary
         if: always()
