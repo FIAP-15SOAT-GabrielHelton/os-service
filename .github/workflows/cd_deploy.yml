@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # Mascara credenciais AWS e secrets do repositório nos logs deste job.
       # Deve ser o primeiro step executável do job.
@@ -185,7 +185,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # Mascaramento repetido pois cada job tem seu próprio contexto de logs.
       - name: Mask Sensitive Credentials

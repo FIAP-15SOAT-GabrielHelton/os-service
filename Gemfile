@@ -20,8 +20,8 @@ gem "tzinfo-data", platforms: %i[ windows jruby ]
 
 # Use the database-backed adapters for Rails.cache, Active Job, and Action Cable
 gem "solid_cache"
-gem "solid_queue"
-gem "solid_cable"
+gem "solid_queue", "~> 1.4.0" # shortcut: 1.5+ exige tabelas novas em db/queue_schema.rb; subir junto com a migração do schema
+gem "solid_cable", "~> 3.0" # shortcut: 4.x muda db/cable_schema.rb; subir junto com a migração do schema
 
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", require: false
@@ -30,7 +30,7 @@ gem "bootsnap", require: false
 gem "thruster", require: false
 
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
-gem "image_processing", "~> 1.2"
+gem "image_processing", "~> 2.0"
 
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 # gem "rack-cors"
@@ -80,6 +80,6 @@ group :development, :test do
 end
 
 group :test do
-  gem "shoulda-matchers", "~> 7.0"
+  gem "shoulda-matchers", "~> 8.0"
   gem "simplecov", require: false
 end
