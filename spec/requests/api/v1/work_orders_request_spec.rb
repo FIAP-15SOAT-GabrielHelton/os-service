@@ -284,7 +284,7 @@ RSpec.describe "Api::V1::WorkOrders", type: :request do
   end
 
   describe "saga driven by the other services' events" do
-    it "goes approved -> in_progress -> completed and can then be delivered" do
+    it "goes approved -> in_progress -> completed -> paid and only then can be delivered" do
       wo_id = setup_approved_work_order[:wo_id]
       get "/api/v1/work_orders/#{wo_id}", headers: auth_headers, as: :json
       line_item_id = response.parsed_body["line_items"].first["id"]
@@ -295,6 +295,10 @@ RSpec.describe "Api::V1::WorkOrders", type: :request do
           "items" => [ { "line_item_id" => line_item_id, "started_at" => "2026-11-12T10:00:00Z",
                          "finished_at" => "2026-11-12T10:45:00Z" } ] }
       )
+      patch "/api/v1/work_orders/#{wo_id}/deliver", headers: auth_headers, as: :json
+      expect(response).to have_http_status(:unprocessable_content) # ainda aguardando pagamento
+
+      pay_via_event(wo_id)
       patch "/api/v1/work_orders/#{wo_id}/deliver", headers: auth_headers, as: :json
 
       expect(response).to have_http_status(:ok)

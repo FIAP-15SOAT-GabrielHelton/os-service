@@ -10,6 +10,7 @@ module WorkOrders
         approved
         in_progress
         completed
+        paid
         delivered
         rejected
         cancelled
@@ -22,7 +23,9 @@ module WorkOrders
         awaiting_approval: %i[approved rejected cancelled],
         approved: %i[in_progress cancelled],
         in_progress: %i[completed cancelled],
-        completed: %i[delivered],
+        # completed = aguardando pagamento; a entrega só é liberada pelo evento payment.approved
+        completed: %i[paid],
+        paid: %i[delivered],
         delivered: [],
         rejected: [],
         cancelled: []

@@ -6,6 +6,7 @@ class WorkOrderMailer < ApplicationMailer
     approved:          "Orçamento aprovado",
     in_progress:       "Serviço em execução",
     completed:         "Serviço concluído — veículo pronto para retirada",
+    paid:              "Pagamento confirmado — veículo liberado para retirada",
     delivered:         "Veículo entregue",
     rejected:          "Orçamento recusado",
     cancelled:         "Ordem de serviço cancelada"

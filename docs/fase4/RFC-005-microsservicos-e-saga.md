@@ -93,7 +93,7 @@ sequenceDiagram
 - [x] 2. `billing-service`: orçamento por eventos
 - [x] 3. `execution-service`: fila em MongoDB por eventos
 - [x] 4. Compensações da Saga
-- [ ] 5. Mercado Pago no `billing-service`
+- [x] 5. Mercado Pago no `billing-service`
 - [x] 6. Remover do `os-service` o que migrou para os outros serviços
 - [ ] 7. Por serviço: cobertura de 80%, um fluxo em BDD, Sonar, CI/CD, `main` protegida
 - [ ] 8. Infra: RabbitMQ, MongoDB, banco do Billing, orquestrador

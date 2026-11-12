@@ -40,7 +40,7 @@ module Persistence
 
       def search(criteria: {}, page: 1, per_page: 20)
         scope = apply_filters(WorkOrderRecord.includes(:line_item_records), criteria)
-        scope = scope.where.not(status: %w[completed delivered]) unless criteria[:status]
+        scope = scope.where.not(status: %w[completed paid delivered]) unless criteria[:status]
         total = scope.count
         entries = scope
           .order(status_priority_order, created_at: :asc)

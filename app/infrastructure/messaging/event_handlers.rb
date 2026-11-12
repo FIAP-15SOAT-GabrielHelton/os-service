@@ -11,7 +11,8 @@ module Messaging
         "quote.rejected" => ->(data) { run(reject_work_order, data) },
         "execution.started" => ->(data) { run(WorkOrders::ExecuteService.new(work_order_repository: work_order_repository), data) },
         "execution.completed" => ->(data) { run(complete_work_order, data, items: data.fetch("items")) },
-        "execution.failed" => ->(data) { run(cancel_work_order, data) }
+        "execution.failed" => ->(data) { run(cancel_work_order, data) },
+        "payment.approved" => ->(data) { run(WorkOrders::PayWorkOrder.new(work_order_repository: work_order_repository, notifier: notifier), data) }
       }
     end
 
