@@ -45,6 +45,9 @@ gem "rswag-ui"
 # APM (latência, throughput, erros, distributed tracing) — ver config/newrelic.yml
 gem "newrelic_rpm"
 
+# Mensageria entre microsserviços (RabbitMQ) — RFC-005
+gem "bunny"
+
 # Estrutura os logs de requisição como uma linha JSON por request (latência, status,
 # controller/action, request_id) — ver config/initializers/lograge.rb
 gem "lograge"

@@ -236,8 +236,9 @@ module Api
         @notifier ||= Shared::WorkOrderNotifier.new(
           notifiers: [
             Shared::WorkOrderEmailNotifier.new(customer_repository: customer_repository),
-            Shared::WorkOrderMetricsNotifier.new
-          ]
+            Shared::WorkOrderMetricsNotifier.new,
+            (Shared::WorkOrderEventNotifier.new(publisher: Messaging::RabbitmqPublisher.new) if ENV["RABBITMQ_URL"])
+          ].compact
         )
       end
 

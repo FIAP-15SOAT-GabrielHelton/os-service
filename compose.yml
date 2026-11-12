@@ -15,6 +15,17 @@ services:
       timeout: 5s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   web:
     build:
       context: .
@@ -28,6 +39,8 @@ services:
     env_file: .env
     depends_on:
       db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     tty: true
     stdin_open: true
