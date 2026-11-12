@@ -8,6 +8,8 @@ spec:
     metadata:
       name: oficina-mecanica-db-prepare
     spec:
+      # O pod não fala com a API do Kubernetes; sem token da service account montado.
+      automountServiceAccountToken: false
       containers:
         - name: db-prepare
           image: IMAGE_PLACEHOLDER

@@ -10,7 +10,7 @@ module Integrations
     OPEN_TIMEOUT = 1
     READ_TIMEOUT = 2
 
-    def initialize(base_url: ENV["BILLING_SERVICE_URL"])
+    def initialize(base_url: ENV.fetch("BILLING_SERVICE_URL", nil))
       @base_url = base_url
     end
 
