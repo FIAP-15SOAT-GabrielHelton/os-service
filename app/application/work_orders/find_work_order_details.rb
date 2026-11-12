@@ -5,16 +5,16 @@ require_relative "../shared/use_case"
 
 module WorkOrders
   class FindWorkOrderDetails < Shared::UseCase
-    def initialize(work_order_repository:, customer_repository:, vehicle_repository:, quote_repository:)
+    def initialize(work_order_repository:, customer_repository:, vehicle_repository:, billing_client:)
       @work_order_repository = work_order_repository
       @customer_repository = customer_repository
       @vehicle_repository = vehicle_repository
-      @quote_repository = quote_repository
+      @billing_client = billing_client
     end
 
     private
 
-    def perform(id:)
+    def perform(id:, authorization: nil)
       work_order = @work_order_repository.find(id)
       return Shared::Result.failure("Work order not found") unless work_order
 
@@ -22,7 +22,7 @@ module WorkOrders
         work_order: work_order,
         customer: @customer_repository.find(work_order.customer_id),
         vehicle: @vehicle_repository.find(work_order.vehicle_id),
-        quote: @quote_repository.find_by_work_order_id(work_order.id)
+        quote: @billing_client.quote_for(work_order.id, authorization: authorization)
       )
     end
   end

@@ -12,17 +12,20 @@ module WorkOrders
         completed
         delivered
         rejected
+        cancelled
       ].freeze
 
       TRANSITIONS = {
         received: %i[diagnosing rejected],
         diagnosing: %i[awaiting_approval rejected],
-        awaiting_approval: %i[approved rejected],
-        approved: %i[in_progress],
-        in_progress: %i[completed],
+        # cancelled: compensação da Saga (sem estoque na aprovação ou falha na execução)
+        awaiting_approval: %i[approved rejected cancelled],
+        approved: %i[in_progress cancelled],
+        in_progress: %i[completed cancelled],
         completed: %i[delivered],
         delivered: [],
-        rejected: []
+        rejected: [],
+        cancelled: []
       }.freeze
 
       attr_reader :value

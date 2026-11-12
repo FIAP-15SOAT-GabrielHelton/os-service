@@ -7,7 +7,8 @@ class WorkOrderMailer < ApplicationMailer
     in_progress:       "Serviço em execução",
     completed:         "Serviço concluído — veículo pronto para retirada",
     delivered:         "Veículo entregue",
-    rejected:          "Orçamento recusado"
+    rejected:          "Orçamento recusado",
+    cancelled:         "Ordem de serviço cancelada"
   }.freeze
 
   def status_changed(work_order, customer_email)

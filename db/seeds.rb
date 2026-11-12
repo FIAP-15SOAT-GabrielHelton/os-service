@@ -33,7 +33,6 @@ vehicle_repo    = Persistence::Registrations::ActiveRecordVehicleRepository.new
 service_repo    = Persistence::Registrations::ActiveRecordServiceRepository.new
 inventory_repo  = Persistence::Inventory::ActiveRecordInventoryItemRepository.new
 work_order_repo = Persistence::WorkOrders::ActiveRecordWorkOrderRepository.new
-quote_repo      = Persistence::Quotes::ActiveRecordQuoteRepository.new
 
 # === Users =================================================================
 
@@ -229,9 +228,15 @@ if Persistence::WorkOrders::WorkOrderRecord.exists?
     work_orders_summary << { wo: wo, customer: customer, vehicle: vehicle }
   end
 else
-  create_quote   = Quotes::CreateQuote.new(quote_repository: quote_repo)
-  approve_wo     = WorkOrders::ApproveWorkOrder.new(work_order_repository: work_order_repo)
-  decrease_qty   = Inventory::DecreaseQuantity.new(inventory_item_repository: inventory_repo)
+  # Aprovação: em produção vem do evento quote.approved (billing-service).
+  approve_wo     = WorkOrders::ApproveWorkOrder.new(
+    work_order_repository: work_order_repo,
+    decrease_quantity: Inventory::DecreaseQuantity.new(inventory_item_repository: inventory_repo),
+    cancel_work_order: WorkOrders::CancelWorkOrder.new(
+      work_order_repository: work_order_repo,
+      add_quantity: Inventory::AddQuantity.new(inventory_item_repository: inventory_repo)
+    )
+  )
 
   create_wo      = WorkOrders::CreateWorkOrder.new(
     work_order_repository: work_order_repo,
@@ -244,16 +249,10 @@ else
     service_repository: service_repo,
     inventory_item_repository: inventory_repo
   )
-  diagnose_wo    = WorkOrders::DiagnoseWorkOrder.new(work_order_repository: work_order_repo, create_quote: create_quote)
-  send_quote     = Quotes::SendQuote.new(quote_repository: quote_repo)
-  approve_quote  = Quotes::ApproveQuote.new(
-    quote_repository: quote_repo,
-    approve_work_order: approve_wo,
-    decrease_quantity: decrease_qty
-  )
+  diagnose_wo    = WorkOrders::DiagnoseWorkOrder.new(work_order_repository: work_order_repo)
   execute_wo     = WorkOrders::ExecuteService.new(work_order_repository: work_order_repo)
-  start_line     = WorkOrders::StartLineItemService.new(work_order_repository: work_order_repo)
-  finish_line    = WorkOrders::FinishLineItemService.new(work_order_repository: work_order_repo)
+  # Conclusão: em produção vem do evento execution.completed (execution-service).
+  complete_wo    = WorkOrders::CompleteWorkOrder.new(work_order_repository: work_order_repo)
 
   # ---- WO #1 — received -----------------------------------------------------
   wo1 = seed_call!(create_wo,
@@ -274,8 +273,6 @@ else
   seed_call!(add_line_item, work_order_id: wo2.id, item_type: :service, reference_id: services[:brakes].id, quantity: 1)
   seed_call!(add_line_item, work_order_id: wo2.id, item_type: :part,    reference_id: inventory[:pad_front].id, quantity: 1)
   seed_call!(diagnose_wo, id: wo2.id)
-  quote2 = quote_repo.find_by_work_order_id(wo2.id)
-  seed_call!(send_quote, id: quote2.id)
   wo2 = work_order_repo.find(wo2.id)
   work_orders_summary << { wo: wo2, customer: customers[:joao], vehicle: vehicles[:uno] }
   puts "Seed: created WO #{wo2.protocol} (awaiting_approval)."
@@ -293,15 +290,12 @@ else
   seed_call!(add_line_item, work_order_id: wo3.id, item_type: :part,    reference_id: inventory[:oil_filter].id, quantity: 1)
   seed_call!(add_line_item, work_order_id: wo3.id, item_type: :part,    reference_id: inventory[:air_filter].id, quantity: 1)
   seed_call!(diagnose_wo, id: wo3.id)
-  quote3 = quote_repo.find_by_work_order_id(wo3.id)
-  seed_call!(send_quote, id: quote3.id)
-  seed_call!(approve_quote, id: quote3.id)
+  seed_call!(approve_wo, id: wo3.id)
   seed_call!(execute_wo, id: wo3.id)
   refreshed3 = work_order_repo.find(wo3.id)
   oil_item = refreshed3.line_items.find { |li| li.service? && li.name_snapshot == services[:oil].name }
-  seed_call!(start_line, work_order_id: wo3.id, line_item_id: oil_item.id)
 
-  # Update the started line item to have a realistic start time (30 minutes ago)
+  # Mark one service as started 30 minutes ago
   Persistence::WorkOrders::LineItemRecord.find(oil_item.id).update(
     started_at: 30.minutes.ago
   )
@@ -321,25 +315,16 @@ else
   seed_call!(add_line_item, work_order_id: wo4.id, item_type: :service, reference_id: services[:scanner].id, quantity: 1)
   seed_call!(add_line_item, work_order_id: wo4.id, item_type: :part,    reference_id: inventory[:battery].id, quantity: 1)
   seed_call!(diagnose_wo, id: wo4.id)
-  quote4 = quote_repo.find_by_work_order_id(wo4.id)
-  seed_call!(send_quote, id: quote4.id)
-  seed_call!(approve_quote, id: quote4.id)
+  seed_call!(approve_wo, id: wo4.id)
   seed_call!(execute_wo, id: wo4.id)
   refreshed4 = work_order_repo.find(wo4.id)
-  # Start and finish each service with realistic time durations
-  refreshed4.service_line_items.each_with_index do |item, idx|
-    seed_call!(start_line, work_order_id: wo4.id, line_item_id: item.id)
-    seed_call!(finish_line, work_order_id: wo4.id, line_item_id: item.id)
-
-    # Update timestamps to add realistic durations (20-40 minutes per service)
-    duration_minutes = (20 + idx * 10).minutes
-    started_at = 2.hours.ago
-    finished_at = started_at + duration_minutes
-    Persistence::WorkOrders::LineItemRecord.find(item.id).update(
-      started_at: started_at,
-      finished_at: finished_at
-    )
+  # Each service with a realistic duration (20-40 minutes), as execution-service would report
+  started_at = 2.hours.ago
+  service_times = refreshed4.service_line_items.each_with_index.map do |item, idx|
+    { "line_item_id" => item.id, "started_at" => started_at.iso8601,
+      "finished_at" => (started_at + (20 + idx * 10).minutes).iso8601 }
   end
+  seed_call!(complete_wo, id: wo4.id, items: service_times)
   wo4 = work_order_repo.find(wo4.id)
   work_orders_summary << { wo: wo4, customer: customers[:joao], vehicle: vehicles[:civic] }
   puts "Seed: created WO #{wo4.protocol} (#{wo4.status})."

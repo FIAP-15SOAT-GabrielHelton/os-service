@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_03_193109) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_12_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -60,25 +60,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_03_193109) do
     t.bigint "work_order_id", null: false
     t.index ["item_type"], name: "index_line_items_on_item_type"
     t.index ["work_order_id"], name: "index_line_items_on_work_order_id"
-  end
-
-  create_table "quote_line_items", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "description", null: false
-    t.integer "quantity", null: false
-    t.bigint "quote_id", null: false
-    t.integer "unit_price_cents", null: false
-    t.datetime "updated_at", null: false
-    t.index ["quote_id"], name: "index_quote_line_items_on_quote_id"
-  end
-
-  create_table "quotes", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "status", default: "created", null: false
-    t.datetime "updated_at", null: false
-    t.bigint "work_order_id", null: false
-    t.index ["status"], name: "index_quotes_on_status"
-    t.index ["work_order_id"], name: "index_quotes_on_work_order_id", unique: true
   end
 
   create_table "services", force: :cascade do |t|
@@ -142,8 +123,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_03_193109) do
   end
 
   add_foreign_key "line_items", "work_orders"
-  add_foreign_key "quote_line_items", "quotes"
-  add_foreign_key "quotes", "work_orders"
   add_foreign_key "vehicles", "customers"
   add_foreign_key "work_orders", "customers"
   add_foreign_key "work_orders", "users", column: "mechanic_id", on_delete: :nullify

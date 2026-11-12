@@ -3,80 +3,46 @@
 require "rails_helper"
 
 RSpec.describe WorkOrders::CompleteWorkOrder do
-  let(:ready_service) do
-    WorkOrders::LineItem.new(
-      id: 1, item_type: :service, reference_id: 1, name_snapshot: "Oil",
-      price_snapshot: 5_000, quantity: 1,
-      started_at: Time.now - 600, finished_at: Time.now
-    )
+  let(:service) do
+    WorkOrders::LineItem.new(id: 1, item_type: :service, reference_id: 1, name_snapshot: "Oil",
+                             price_snapshot: 5_000, quantity: 1)
   end
-
   let(:work_order) do
-    WorkOrders::WorkOrder.new(
-      id: 1, customer_id: 10, vehicle_id: 20,
-      problem_description: "x", status: :in_progress,
-      line_items: [ ready_service ]
-    )
+    WorkOrders::WorkOrder.new(id: 1, customer_id: 10, vehicle_id: 20, problem_description: "x",
+                              status: :in_progress, line_items: [ service ])
   end
-
   let(:repository) do
-    double("WorkOrderRepository").tap do |repo|
+    double("WorkOrderRepository").tap do |repo| # rubocop:disable RSpec/VerifiedDoubles
       allow(repo).to receive(:find).with(1).and_return(work_order)
       allow(repo).to receive(:find).with(999).and_return(nil)
       allow(repo).to receive(:save) { |wo| wo }
     end
   end
-
-  let(:use_case) do
-    described_class.new(work_order_repository: repository)
+  let(:notifier) { double("notifier", notify_status_changed: nil) } # rubocop:disable RSpec/VerifiedDoubles
+  let(:use_case) { described_class.new(work_order_repository: repository, notifier: notifier) }
+  let(:items) do
+    [ { "line_item_id" => 1, "started_at" => "2026-11-12T10:00:00Z", "finished_at" => "2026-11-12T10:30:00Z" } ]
   end
 
-  describe "#call (happy path)" do
-    it "transitions in_progress → completed when all services are ready" do
-      result = use_case.call(id: 1)
+  it "records the service times reported by execution-service and completes the work order" do
+    result = use_case.call(id: 1, items: items)
 
-      expect(result).to be_success
-      expect(result.value.completed?).to be true
-    end
+    expect(result.value.completed?).to be true
+    expect(result.value.total_execution_time_minutes).to eq(30.0)
+    expect(notifier).to have_received(:notify_status_changed).with(work_order)
   end
 
-  describe "#call (errors)" do
-    it "returns failure when WO not found" do
-      result = use_case.call(id: 999)
+  it "fails when the work order does not exist" do
+    expect(use_case.call(id: 999, items: items)).to be_failure
+  end
 
-      expect(result).to be_failure
-    end
+  it "fails when a service of the work order has no reported times" do
+    expect(use_case.call(id: 1, items: []).error).to match(/All services/)
+  end
 
-    it "returns failure when a service is still pending" do
-      pending_service = WorkOrders::LineItem.new(
-        id: 2, item_type: :service, reference_id: 2, name_snapshot: "Brake",
-        price_snapshot: 8_000, quantity: 1
-      )
-      allow(repository).to receive(:find).with(1).and_return(
-        WorkOrders::WorkOrder.new(
-          id: 1, customer_id: 10, vehicle_id: 20,
-          problem_description: "x", status: :in_progress,
-          line_items: [ ready_service, pending_service ]
-        )
-      )
+  it "fails when the event references an unknown line item" do
+    result = use_case.call(id: 1, items: [ items.first.merge("line_item_id" => 99) ])
 
-      result = use_case.call(id: 1)
-
-      expect(result).to be_failure
-      expect(result.error).to match(/All services must be finished/)
-    end
-
-    it "returns failure when WO is not in_progress" do
-      allow(repository).to receive(:find).with(1).and_return(
-        WorkOrders::WorkOrder.new(id: 1, customer_id: 10, vehicle_id: 20,
-                                   problem_description: "x", status: :approved,
-                                   line_items: [ ready_service ])
-      )
-
-      result = use_case.call(id: 1)
-
-      expect(result).to be_failure
-      expect(result.error).to match(/Invalid transition/)
-    end
+    expect(result.error).to match(/Line item 99 not found/)
   end
 end

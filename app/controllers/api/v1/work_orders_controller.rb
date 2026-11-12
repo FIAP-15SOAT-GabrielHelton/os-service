@@ -3,9 +3,9 @@
 module Api
   module V1
     class WorkOrdersController < Api::V1::ApplicationController
-      before_action :require_staff!, only: %i[ready_to_execute reject add_line_item start_line_item finish_line_item]
+      before_action :require_staff!, only: %i[reject add_line_item]
       before_action :require_receptionist!, only: %i[assign deliver]
-      before_action :require_mechanic!, only: %i[diagnose execute complete]
+      before_action :require_mechanic!, only: %i[diagnose]
 
       def index
         result = list_work_orders.call(**list_params)
@@ -22,7 +22,7 @@ module Api
       end
 
       def show
-        result = find_work_order_details.call(id: params[:id])
+        result = find_work_order_details.call(id: params[:id], authorization: request.headers["Authorization"])
 
         if result.success?
           return render_forbidden if forbidden_for_customer?(result.value[:work_order].customer_id)
@@ -31,12 +31,6 @@ module Api
         else
           render json: { error: result.error }, status: :not_found
         end
-      end
-
-      def ready_to_execute
-        result = list_approved_work_orders.call
-
-        render json: result.value.map { |wo| WorkOrders::Presenters::WorkOrder.call(wo) }
       end
 
       def create
@@ -94,48 +88,8 @@ module Api
         end
       end
 
-      def execute
-        result = execute_service.call(id: params[:id])
-
-        if result.success?
-          render json: WorkOrders::Presenters::WorkOrder.call(result.value)
-        else
-          render json: { error: result.error }, status: :unprocessable_entity
-        end
-      end
-
-      def complete
-        result = complete_work_order.call(id: params[:id])
-
-        if result.success?
-          render json: WorkOrders::Presenters::WorkOrder.call(result.value)
-        else
-          render json: { error: result.error }, status: :unprocessable_entity
-        end
-      end
-
       def deliver
         result = deliver_work_order.call(id: params[:id])
-
-        if result.success?
-          render json: WorkOrders::Presenters::WorkOrder.call(result.value)
-        else
-          render json: { error: result.error }, status: :unprocessable_entity
-        end
-      end
-
-      def start_line_item
-        result = start_line_item_service.call(work_order_id: params[:id], line_item_id: params[:line_item_id])
-
-        if result.success?
-          render json: WorkOrders::Presenters::WorkOrder.call(result.value)
-        else
-          render json: { error: result.error }, status: :unprocessable_entity
-        end
-      end
-
-      def finish_line_item
-        result = finish_line_item_service.call(work_order_id: params[:id], line_item_id: params[:line_item_id])
 
         if result.success?
           render json: WorkOrders::Presenters::WorkOrder.call(result.value)
@@ -177,16 +131,12 @@ module Api
           work_order_repository: work_order_repository,
           customer_repository: customer_repository,
           vehicle_repository: vehicle_repository,
-          quote_repository: quote_repository
+          billing_client: Integrations::BillingClient.new
         )
       end
 
       def list_work_orders
         WorkOrders::ListWorkOrders.new(work_order_repository: work_order_repository)
-      end
-
-      def list_approved_work_orders
-        WorkOrders::ListApprovedWorkOrders.new(work_order_repository: work_order_repository)
       end
 
       def assign_work_order
@@ -199,13 +149,8 @@ module Api
       def diagnose_work_order
         WorkOrders::DiagnoseWorkOrder.new(
           work_order_repository: work_order_repository,
-          create_quote: Quotes::CreateQuote.new(quote_repository: quote_repository),
           notifier: notifier
         )
-      end
-
-      def quote_repository
-        @quote_repository ||= Persistence::Quotes::ActiveRecordQuoteRepository.new
       end
 
       def add_line_item_use_case
@@ -220,14 +165,6 @@ module Api
         WorkOrders::RejectWorkOrder.new(work_order_repository: work_order_repository)
       end
 
-      def execute_service
-        WorkOrders::ExecuteService.new(work_order_repository: work_order_repository)
-      end
-
-      def complete_work_order
-        WorkOrders::CompleteWorkOrder.new(work_order_repository: work_order_repository, notifier: notifier)
-      end
-
       def deliver_work_order
         WorkOrders::DeliverWorkOrder.new(work_order_repository: work_order_repository, notifier: notifier)
       end
@@ -236,17 +173,10 @@ module Api
         @notifier ||= Shared::WorkOrderNotifier.new(
           notifiers: [
             Shared::WorkOrderEmailNotifier.new(customer_repository: customer_repository),
-            Shared::WorkOrderMetricsNotifier.new
-          ]
+            Shared::WorkOrderMetricsNotifier.new,
+            (Shared::WorkOrderEventNotifier.new(publisher: Messaging::RabbitmqPublisher.new) if ENV["RABBITMQ_URL"])
+          ].compact
         )
-      end
-
-      def start_line_item_service
-        WorkOrders::StartLineItemService.new(work_order_repository: work_order_repository)
-      end
-
-      def finish_line_item_service
-        WorkOrders::FinishLineItemService.new(work_order_repository: work_order_repository, notifier: notifier)
       end
 
       def create_params

@@ -6,9 +6,8 @@ require_relative "../shared/work_order_notifier"
 
 module WorkOrders
   class DiagnoseWorkOrder < Shared::UseCase
-    def initialize(work_order_repository:, create_quote:, notifier: Shared::NullNotifier.new)
+    def initialize(work_order_repository:, notifier: Shared::NullNotifier.new)
       @repository = work_order_repository
-      @create_quote = create_quote
       @notifier = notifier
     end
 
@@ -18,16 +17,12 @@ module WorkOrders
       work_order = @repository.find(id)
       return Shared::Result.failure("Work order not found") unless work_order
 
-      ActiveRecord::Base.transaction do
-        work_order.diagnose
-        @repository.save(work_order)
+      work_order.diagnose
+      saved = @repository.save(work_order)
 
-        quote_result = @create_quote.call(work_order: work_order)
-        raise "Failed to create quote: #{quote_result.error}" unless quote_result.success?
-      end
-
-      @notifier.notify_status_changed(work_order)
-      Shared::Result.success(work_order)
+      # O orçamento é gerado pelo billing-service ao receber work_order.diagnosed.
+      @notifier.notify_status_changed(saved)
+      Shared::Result.success(saved)
     end
   end
 end

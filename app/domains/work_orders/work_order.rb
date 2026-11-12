@@ -105,6 +105,10 @@ module WorkOrders
       @status = @status.transition_to(:rejected)
     end
 
+    def cancel
+      @status = @status.transition_to(:cancelled)
+    end
+
     private
 
     def compute_total_execution_time_minutes

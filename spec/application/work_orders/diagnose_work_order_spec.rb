@@ -33,14 +33,10 @@ RSpec.describe WorkOrders::DiagnoseWorkOrder do
     end
   end
 
-  let(:create_quote) do
-    double("CreateQuote").tap do |uc|
-      allow(uc).to receive(:call).and_return(Shared::Result.success(double("Quote")))
-    end
-  end
+  let(:notifier) { double("notifier", notify_status_changed: nil) } # rubocop:disable RSpec/VerifiedDoubles
 
   let(:use_case) do
-    described_class.new(work_order_repository: repository, create_quote: create_quote)
+    described_class.new(work_order_repository: repository, notifier: notifier)
   end
 
   describe "#call" do
@@ -51,10 +47,10 @@ RSpec.describe WorkOrders::DiagnoseWorkOrder do
       expect(result.value.awaiting_approval?).to be true
     end
 
-    it "calls CreateQuote with the diagnosed work order" do
+    it "notifies the status change so work_order.diagnosed is published" do
       use_case.call(id: 1)
 
-      expect(create_quote).to have_received(:call).with(work_order: work_order)
+      expect(notifier).to have_received(:notify_status_changed).with(work_order)
     end
 
     it "returns failure when not found" do
@@ -75,15 +71,6 @@ RSpec.describe WorkOrders::DiagnoseWorkOrder do
 
       expect(result).to be_failure
       expect(result.error).to match(/without line items/)
-    end
-
-    it "returns failure when CreateQuote fails (transaction rolls back)" do
-      allow(create_quote).to receive(:call).and_return(Shared::Result.failure("Quote save failed"))
-
-      result = use_case.call(id: 1)
-
-      expect(result).to be_failure
-      expect(result.error).to match(/Failed to create quote/)
     end
   end
 end
