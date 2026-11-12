@@ -96,6 +96,10 @@ module WorkOrders
       (durations.sum / durations.size).round(2)
     end
 
+    def pay
+      @status = @status.transition_to(:paid)
+    end
+
     def deliver
       @status = @status.transition_to(:delivered)
       @delivered_at = Time.now

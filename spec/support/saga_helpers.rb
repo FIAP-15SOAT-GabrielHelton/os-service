@@ -9,6 +9,10 @@ module SagaHelpers
   def start_execution_via_event(work_order_id)
     Messaging::EventHandlers.build.fetch("execution.started").call({ "work_order_id" => work_order_id })
   end
+
+  def pay_via_event(work_order_id)
+    Messaging::EventHandlers.build.fetch("payment.approved").call({ "work_order_id" => work_order_id })
+  end
 end
 
 RSpec.configure do |config|

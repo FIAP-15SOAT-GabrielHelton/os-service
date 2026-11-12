@@ -6,7 +6,7 @@ RSpec.describe WorkOrders::DeliverWorkOrder do
   let(:work_order) do
     WorkOrders::WorkOrder.new(
       id: 1, customer_id: 10, vehicle_id: 20,
-      problem_description: "x", status: :completed
+      problem_description: "x", status: :paid
     )
   end
 
@@ -21,7 +21,7 @@ RSpec.describe WorkOrders::DeliverWorkOrder do
   let(:use_case) { described_class.new(work_order_repository: repository) }
 
   describe "#call (happy path)" do
-    it "transitions completed → delivered" do
+    it "transitions paid → delivered" do
       result = use_case.call(id: 1)
 
       expect(result).to be_success
