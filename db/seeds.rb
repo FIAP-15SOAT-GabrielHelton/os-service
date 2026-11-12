@@ -231,7 +231,11 @@ else
   # Aprovação: em produção vem do evento quote.approved (billing-service).
   approve_wo     = WorkOrders::ApproveWorkOrder.new(
     work_order_repository: work_order_repo,
-    decrease_quantity: Inventory::DecreaseQuantity.new(inventory_item_repository: inventory_repo)
+    decrease_quantity: Inventory::DecreaseQuantity.new(inventory_item_repository: inventory_repo),
+    cancel_work_order: WorkOrders::CancelWorkOrder.new(
+      work_order_repository: work_order_repo,
+      add_quantity: Inventory::AddQuantity.new(inventory_item_repository: inventory_repo)
+    )
   )
 
   create_wo      = WorkOrders::CreateWorkOrder.new(

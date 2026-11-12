@@ -24,8 +24,10 @@ RSpec.describe WorkOrders::ApproveWorkOrder do
   end
   let(:decrease_quantity) { double("DecreaseQuantity", call: Shared::Result.success) } # rubocop:disable RSpec/VerifiedDoubles
   let(:notifier) { double("notifier", notify_status_changed: nil) } # rubocop:disable RSpec/VerifiedDoubles
+  let(:cancel_work_order) { double("CancelWorkOrder", call: Shared::Result.success(:cancelled)) } # rubocop:disable RSpec/VerifiedDoubles
   let(:use_case) do
-    described_class.new(work_order_repository: repository, decrease_quantity: decrease_quantity, notifier: notifier)
+    described_class.new(work_order_repository: repository, decrease_quantity: decrease_quantity,
+                        cancel_work_order: cancel_work_order, notifier: notifier)
   end
 
   it "approves the work order, decreases stock only for parts and notifies" do
@@ -49,10 +51,13 @@ RSpec.describe WorkOrders::ApproveWorkOrder do
     expect(decrease_quantity).not_to have_received(:call)
   end
 
-  it "fails without notifying when stock is insufficient" do
+  it "cancels the work order instead of approving when stock is insufficient" do
     allow(decrease_quantity).to receive(:call).and_return(Shared::Result.failure("Insufficient stock"))
 
-    expect(use_case.call(id: 1).error).to eq("Insufficient stock")
+    result = use_case.call(id: 1)
+
+    expect(result.value).to eq(:cancelled)
+    expect(cancel_work_order).to have_received(:call).with(id: 1)
     expect(notifier).not_to have_received(:notify_status_changed)
   end
 end

@@ -32,6 +32,12 @@ RSpec.describe Shared::WorkOrderEventNotifier do
     expect(publisher).to have_received(:publish).with("work_order.approved", hash_including(work_order_id: 1))
   end
 
+  it "publishes work_order.cancelled when cancelled" do
+    notifier.notify_status_changed(work_order(status: :cancelled))
+
+    expect(publisher).to have_received(:publish).with("work_order.cancelled", hash_including(work_order_id: 1))
+  end
+
   it "does not publish for statuses without a saga event" do
     notifier.notify_status_changed(work_order(status: :diagnosing))
 

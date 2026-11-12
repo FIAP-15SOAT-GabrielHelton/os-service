@@ -302,6 +302,52 @@ RSpec.describe "Api::V1::WorkOrders", type: :request do
     end
   end
 
+  describe "saga compensations" do
+    def diagnosed_work_order_with_part(stock:, quantity:)
+      customer_id = create_customer
+      wo_id = create_work_order(customer_id, create_vehicle(customer_id))
+      part_id = create_inventory_item(quantity: stock)
+      patch "/api/v1/work_orders/#{wo_id}/assign", params: { mechanic_id: default_test_mechanic.id }, headers: auth_headers, as: :json
+      post "/api/v1/work_orders/#{wo_id}/line_items",
+           params: { item_type: "service", reference_id: create_service, quantity: 1 }, headers: auth_headers, as: :json
+      post "/api/v1/work_orders/#{wo_id}/line_items",
+           params: { item_type: "part", reference_id: part_id, quantity: quantity }, headers: auth_headers, as: :json
+      patch "/api/v1/work_orders/#{wo_id}/diagnose", headers: auth_headers, as: :json
+      [ wo_id, part_id ]
+    end
+
+    def status_of(wo_id)
+      get "/api/v1/work_orders/#{wo_id}", headers: auth_headers, as: :json
+      response.parsed_body["status"]
+    end
+
+    def stock_of(part_id)
+      get "/api/v1/inventory_items/#{part_id}", headers: auth_headers, as: :json
+      response.parsed_body["quantity"]
+    end
+
+    it "cancels the work order when the quote is approved but there is not enough stock" do
+      wo_id, part_id = diagnosed_work_order_with_part(stock: 1, quantity: 2)
+
+      approve_via_event(wo_id)
+
+      expect(status_of(wo_id)).to eq("cancelled")
+      expect(stock_of(part_id)).to eq(1)
+    end
+
+    it "cancels the work order and returns the parts to stock when the execution fails" do
+      wo_id, part_id = diagnosed_work_order_with_part(stock: 5, quantity: 2)
+      approve_via_event(wo_id)
+      start_execution_via_event(wo_id)
+      expect(stock_of(part_id)).to eq(3)
+
+      Messaging::EventHandlers.build.fetch("execution.failed").call({ "work_order_id" => wo_id, "reason" => "Elevador quebrado" })
+
+      expect(status_of(wo_id)).to eq("cancelled")
+      expect(stock_of(part_id)).to eq(5)
+    end
+  end
+
   describe "PATCH /api/v1/work_orders/:id/reject" do
     it "rejects a work order in received status" do
       customer_id = create_customer

@@ -49,6 +49,17 @@ describe WorkOrders::ValueObjects::WorkOrderStatus do
       expect(described_class.new(:received).can_transition_to?(:in_progress)).to be false
     end
 
+    it "allows cancelling from awaiting_approval, approved and in_progress (saga compensation)" do
+      %i[awaiting_approval approved in_progress].each do |state|
+        expect(described_class.new(state).can_transition_to?(:cancelled)).to be true
+      end
+    end
+
+    it "does not allow cancelling a completed work order, and cancelled is terminal" do
+      expect(described_class.new(:completed).can_transition_to?(:cancelled)).to be false
+      expect(described_class.new(:cancelled).terminal?).to be true
+    end
+
     it "rejects approved → rejected (customer cannot un-approve after committing)" do
       expect(described_class.new(:approved).can_transition_to?(:rejected)).to be false
     end
