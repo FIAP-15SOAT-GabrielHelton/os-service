@@ -22,7 +22,7 @@ module Api
       end
 
       def show
-        result = find_work_order_details.call(id: params[:id])
+        result = find_work_order_details.call(id: params[:id], authorization: request.headers["Authorization"])
 
         if result.success?
           return render_forbidden if forbidden_for_customer?(result.value[:work_order].customer_id)
@@ -176,7 +176,8 @@ module Api
         WorkOrders::FindWorkOrderDetails.new(
           work_order_repository: work_order_repository,
           customer_repository: customer_repository,
-          vehicle_repository: vehicle_repository
+          vehicle_repository: vehicle_repository,
+          billing_client: Integrations::BillingClient.new
         )
       end
 

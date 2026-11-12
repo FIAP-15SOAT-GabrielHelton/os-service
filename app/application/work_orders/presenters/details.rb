@@ -8,7 +8,8 @@ module WorkOrders
       def call(details)
         WorkOrder.call(details[:work_order]).merge(
           customer: customer(details[:customer]),
-          vehicle: vehicle(details[:vehicle])
+          vehicle: vehicle(details[:vehicle]),
+          quote: details[:quote]
         )
       end
 
