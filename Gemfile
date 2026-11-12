@@ -74,7 +74,7 @@ group :development, :test do
   gem "rswag-specs"
 
   # Testing framework and helpers
-  gem "rspec-rails", "~> 8.0"
+  gem "rspec-rails", "~> 8.1"
   gem "factory_bot_rails"
   gem "faker"
 end
