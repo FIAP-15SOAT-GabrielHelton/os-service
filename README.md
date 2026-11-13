@@ -1,332 +1,153 @@
-# 15SOAT - Fase 3 - Tech Challenge - Grupo 161
+# OS Service — 15SOAT - Fase 4 - Tech Challenge - Grupo 161
 
-Sistema de gestão de oficina mecânica: uma API Rails que cobre todo o ciclo de vida de uma Ordem de Serviço (OS), da abertura ao orçamento, aprovação e entrega do veículo. A Fase 1 entregou a aplicação em **Domain-Driven Design (DDD)**; a Fase 2 evoluiu código e infraestrutura (Kubernetes, Terraform, HPA); a **Fase 3** adiciona **autenticação de clientes via CPF**, **autorização por papéis (RBAC)** e uma **arquitetura serverless** (AWS API Gateway + Lambda) como porta de entrada única — e separa o projeto em **5 repositórios independentes**, conforme exigido pelo desafio.
+Microsserviço de **Ordens de Serviço** da Oficina Mecânica. Na Fase 4 o monolito da Fase 3 foi dividido em três microsserviços que se comunicam por eventos, com o fluxo da OS coordenado por uma **Saga coreografada**. Este repositório é o ponto de partida do fluxo: cadastros, estoque, abertura, diagnóstico, status e entrega da OS.
 
-> A documentação das fases anteriores foi preservada: [Fase 1](docs/fase1/README.md) (arquitetura DDD, bounded contexts, event storming) e [Fase 2](docs/fase2/README.md) (Clean Code, Kubernetes/Terraform, HPA).
+> Fases anteriores: [Fase 1](docs/fase1/README.md) (DDD), [Fase 2](docs/fase2/README.md) (Kubernetes, Terraform, HPA), [Fase 3](docs/fase3/README.md) (autenticação por CPF, RBAC, serverless).
 
-## Tecnologias utilizadas
+## Repositórios da Fase 4
 
-| Categoria | Tecnologia |
-| :--- | :--- |
-| Linguagem / Framework | Ruby 3.4, Rails 8.1 (API-only) |
-| Banco de dados | PostgreSQL (RDS gerenciado, provisionado pelo repositório [`db-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/db-infra)) |
-| Servidor de aplicação | Puma |
-| Jobs assíncronos | Solid Queue (roda sobre o próprio Postgres, sem Redis) |
-| Autenticação | JWT (`jwt`) — staff via e-mail/senha e clientes via CPF (bridge com o [`auth-serverless`](https://github.com/FIAP-15SOAT-GabrielHelton/auth-serverless)) |
-| Documentação da API | OpenAPI/Swagger (`rswag`) |
-| Testes | RSpec, FactoryBot, Faker, shoulda-matchers, SimpleCov (mínimo 80% linha/branch) |
-| Qualidade / Segurança | RuboCop, Brakeman, bundler-audit, Trivy, Semgrep, SonarQube, OWASP ZAP |
-| Deploy | Docker, Kubernetes (EKS, provisionado pelo [`k8s-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/k8s-infra)), Terraform (ECR), Helm (metrics-server) |
-| CI/CD | GitHub Actions |
-
-## Objetivos desta fase
-
-- **Autenticação de clientes via CPF**: identificação sem senha, emitindo um JWT (`role: "customer"`) para acesso escopado aos próprios dados.
-- **RBAC (Role-Based Access Control)**: papéis `admin`, `receptionist`, `mechanic` (staff) e `customer`, com regras de acesso por rota/ação (matriz completa na RFC-001).
-- **Arquitetura serverless como porta de entrada única**: AWS API Gateway + AWS Lambda (função de autenticação + Lambda Authorizer), num repositório dedicado.
-- **Separação em 5 repositórios independentes**, cada um com CI/CD próprio: [`api`](https://github.com/FIAP-15SOAT-GabrielHelton/api) (este), [`k8s-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/k8s-infra), [`db-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/db-infra), [`auth-serverless`](https://github.com/FIAP-15SOAT-GabrielHelton/auth-serverless) e o auxiliar [`deploy-orchestrator`](https://github.com/FIAP-15SOAT-GabrielHelton/deploy-orchestrator).
-- Documentar as decisões técnicas como **RFC** (com ADRs embutidos) — ver [`docs/fase3/RFC-001`](docs/fase3/RFC-001-authentication-authorization-serverless.md).
-
-## Autenticação e RBAC
-
-- **Staff** (`admin`/`receptionist`/`mechanic`): `POST /api/v1/auth/login` (e-mail/senha) → JWT `type: "access"`.
-- **Cliente**: `POST /api/v1/auth/customer` (CPF) → JWT `type: "customer_access"`, `role: "customer"`. Em produção, essa rota é atendida pela Lambda `auth_customer` do [`auth-serverless`](https://github.com/FIAP-15SOAT-GabrielHelton/auth-serverless), que valida o formato do CPF e delega a este repositório (Single Source of Truth) a existência/status do cliente e a emissão do token.
-- **Autorização**: o concern `JwtAuthenticatable` (`app/controllers/concerns/jwt_authenticatable.rb`) expõe `require_staff!`, `require_admin!`, `require_mechanic!`, `require_receptionist!`, `require_customer!` e o helper `forbidden_for_customer?` para checagem de ownership (cliente só acessa seus próprios veículos, OSs, orçamentos e cadastro).
-- Matriz completa de permissões por rota: [RFC-001 §6](docs/fase3/RFC-001-authentication-authorization-serverless.md).
+| Repositório | Responsabilidade | Banco |
+| :--- | :--- | :--- |
+| [`os-service`](https://github.com/FIAP-15SOAT-GabrielHelton/os-service) (este) | Clientes, veículos, serviços, estoque, usuários e o ciclo de vida da OS | PostgreSQL |
+| [`billing-service`](https://github.com/FIAP-15SOAT-GabrielHelton/billing-service) | Orçamento, aprovação e pagamento (Mercado Pago) | PostgreSQL |
+| [`execution-service`](https://github.com/FIAP-15SOAT-GabrielHelton/execution-service) | Fila e andamento da execução | MongoDB |
+| [`k8s-infra-fase4`](https://github.com/FIAP-15SOAT-GabrielHelton/k8s-infra-fase4) | VPC, EKS, RabbitMQ, MongoDB e New Relic | — |
+| [`db-infra-fase4`](https://github.com/FIAP-15SOAT-GabrielHelton/db-infra-fase4) | RDS PostgreSQL, com um usuário e bancos isolados por serviço | — |
+| [`auth-serverless-fase4`](https://github.com/FIAP-15SOAT-GabrielHelton/auth-serverless-fase4) | API Gateway e Lambdas de autenticação | — |
+| [`deploy-orchestrator-fase4`](https://github.com/FIAP-15SOAT-GabrielHelton/deploy-orchestrator-fase4) | Deploy e destroy de todos os repositórios, em sequência | — |
 
 ## Arquitetura
 
-### Componentes da aplicação (neste repositório)
-
-| Componente     | O que é                                                              | Onde roda                                                                |
-| -------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| **web**        | API Rails (Puma), exposta via `/up`, `/api/v1/*`, `/api-docs`        | `Deployment` `oficina-mecanica-web` + `Service` LoadBalancer             |
-| **jobs**       | Worker do Solid Queue (e-mails via SendGrid, jobs assíncronos)       | `Deployment` `oficina-mecanica-jobs`                                     |
-| **db-prepare** | `bin/rails db:prepare` (migrations + seed) — roda uma vez por deploy | `Job` do Kubernetes, com `kubectl wait` bloqueando o deploy até concluir |
-| **HPA**        | Escala o `web` por CPU (70%) e memória (80%), 1 a 3 réplicas         | `HorizontalPodAutoscaler` + `metrics-server` (do `k8s-infra`)            |
-
-### Visão dos 5 repositórios
-
 ```mermaid
 flowchart LR
-    Client["Cliente / Staff"]
-    APIGW["API Gateway + Lambdas\n(auth-serverless)\núnica porta de entrada"]
+    U[Cliente / Funcionário] --> GW[API Gateway + Lambdas<br/>auth-serverless-fase4]
+    GW --> OS
 
-    subgraph ThisRepo["api — este repositório"]
-        Web["Rails (web/jobs)"]
-        ECR[["ECR"]]
+    subgraph EKS[Cluster EKS]
+        OS[OS Service<br/>web + consumer]
+        B[Billing Service<br/>web + consumer]
+        E[Execution Service<br/>web + consumer]
+        MQ{{RabbitMQ<br/>exchange oficina.events}}
+        MG[(MongoDB)]
+        OS <-->|eventos| MQ
+        B <-->|eventos| MQ
+        E <-->|eventos| MQ
+        OS -->|REST: orçamento da OS| B
+        E --> MG
     end
 
-    K8S["k8s-infra\nVPC + EKS"]
-    DB["db-infra\nRDS PostgreSQL"]
-    Orch["deploy-orchestrator\n(dispara os 4 repos em ordem)"]
-
-    Client --> APIGW
-    APIGW -- "HTTP_PROXY (rotas públicas + autorizadas)" --> Web
-    Web --- K8S
-    Web --> DB
-    Orch -.-> K8S
-    Orch -.-> DB
-    Orch -.-> ThisRepo
-    Orch -.-> APIGW
-
-    classDef repo fill:#9bb8ff,stroke:#5470c6,color:#000
-    classDef ext fill:#dddddd,stroke:#999999,color:#333,stroke-dasharray: 3 3
-    class Web,ECR repo
-    class APIGW,K8S,DB,Orch ext
+    OS --> PG1[(PostgreSQL<br/>usuário os_service)]
+    B --> PG2[(PostgreSQL<br/>usuário billing_service)]
+    B <-->|cobrança e webhook| MP[Mercado Pago]
+    EKS -.->|métricas e traces| NR[New Relic]
 ```
 
-Detalhes de cada repositório, o contrato de dados entre eles (AWS SSM Parameter Store) e a ordem de deploy: [RFC-001 §7.3](docs/fase3/RFC-001-authentication-authorization-serverless.md).
+- **Assíncrono:** os serviços trocam eventos por um exchange de tópico no RabbitMQ; cada serviço tem a sua fila durável.
+- **Síncrono (REST):** só uma chamada entre serviços — o detalhe da OS busca o orçamento no Billing (API Composition), repassando o token do usuário. Se o Billing estiver fora, a OS responde sem o orçamento.
+- **Bancos isolados:** nenhum serviço acessa o banco de outro. OS e Billing dividem a instância RDS, mas cada um tem usuário próprio e não consegue conectar nos bancos do outro; o Execution usa MongoDB.
 
-### Infraestrutura deste repositório (Terraform, `infra/`) e sua relação com os demais
+## Saga
 
-> VPC, EKS e RDS deixaram de ser provisionados aqui — foram extraídos para os repositórios [`k8s-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/k8s-infra) e [`db-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/db-infra), atendendo ao requisito do desafio de repositórios independentes. Este repositório provisiona só o **ECR** e faz o **deploy da aplicação** num cluster já existente. A troca de informação entre os 5 repositórios (cluster, banco, URL pública) acontece via **AWS SSM Parameter Store** — nenhum deles lê o `.tfstate` de outro.
+A Saga é **coreografada**: não há orquestrador central, cada serviço reage aos eventos dos outros e publica os seus.
+
+**Por que coreografada:** são três serviços e um fluxo linear. Um orquestrador seria um quarto componente para desenvolver, implantar e manter, e um ponto único de falha, sem ganho real nesse tamanho. O custo conhecido da coreografia — o fluxo fica espalhado pelos serviços — é compensado pela documentação abaixo e pelo teste BDD, que percorre o fluxo inteiro.
 
 ```mermaid
-flowchart TB
-    subgraph ThisRepo["api — este repositório"]
-        ECR[["ECR\nimagem Docker"]]
-        Web["Deployment web (Puma)"]
-        Jobs["Deployment jobs (Solid Queue)"]
-        DbPrepare["Job db-prepare\n(migrations + seed)"]
-        Svc["Service\nLoadBalancer"]
-        HPA["HPA\n1 a 3 réplicas"]
-    end
+sequenceDiagram
+    autonumber
+    participant OS as OS Service
+    participant B as Billing Service
+    participant E as Execution Service
+    participant MP as Mercado Pago
 
-    subgraph Others["Provisionado por outros repositórios"]
-        EKS[["Cluster EKS\n(k8s-infra)"]]
-        RDS[("RDS PostgreSQL\n(db-infra)")]
-        APIGW["API Gateway\n(auth-serverless)"]
-    end
-
-    SSM[("AWS SSM\nParameter Store")]
-
-    SSM -. eks_cluster_name .-> Web
-    SSM -. rds_address .-> Web
-    ECR -- pull da imagem --> Web
-    ECR -- pull da imagem --> Jobs
-    Web & Jobs & DbPrepare --> RDS
-    Web --- EKS
-    HPA -. escala .-> Web
-    Web --> Svc
-    Svc -. publica rails_api_base_url .-> SSM
-    APIGW -- HTTP_PROXY --> Svc
-
-    classDef repo fill:#9bb8ff,stroke:#5470c6,color:#000
-    classDef ext fill:#dddddd,stroke:#999999,color:#333,stroke-dasharray: 3 3
-    classDef db fill:#a8e6a2,stroke:#2d8a1f,color:#000
-
-    class ECR,Web,Jobs,DbPrepare,Svc,HPA repo
-    class EKS,APIGW ext
-    class RDS,SSM db
+    OS->>B: work_order.diagnosed (itens e valores)
+    Note over B: gera e envia o orçamento
+    B->>OS: quote.approved
+    Note over OS: baixa o estoque
+    OS->>E: work_order.approved
+    Note over E: enfileira
+    E->>OS: execution.started
+    Note over E: executa
+    E->>OS: execution.completed
+    E->>B: execution.completed
+    B->>MP: cria a cobrança
+    MP-->>B: webhook de pagamento
+    B->>OS: payment.approved
+    Note over OS: libera a entrega
 ```
 
-- **ECR** (`infra/ecr.tf`): registry da imagem Docker da aplicação — único recurso de Terraform que sobrou neste repositório.
-- **Deploy no Kubernetes** (`k8s/`): `Deployment` web + jobs, `Job` de migrations/seed, `Service` LoadBalancer e `HPA` — aplicados via `kubectl` num cluster provisionado pelo `k8s-infra` (nome lido do SSM).
-- **RDS**: endpoint lido do SSM, publicado pelo `db-infra`.
-- **API Gateway**: mora no `auth-serverless` e acessa o `Service` deste repositório via `HTTP_PROXY` direto ao hostname público do ELB (publicado por este repositório no SSM).
-- Detalhes completos da separação e do contrato de dados: [RFC-001](docs/fase3/RFC-001-authentication-authorization-serverless.md) (ADR 5, 6 e 7).
+### Compensações
 
-### Fluxo de CI
+| Falha | Evento | O que é desfeito |
+| :--- | :--- | :--- |
+| Cliente rejeita o orçamento | `quote.rejected` (Billing) | A OS é marcada como rejeitada |
+| Estoque insuficiente na aprovação | `work_order.cancelled` (OS) | A OS é cancelada em vez de aprovada; o Billing cancela o orçamento; a execução não é criada |
+| Execução falha | `execution.failed` (Execution) → `work_order.cancelled` (OS) | A OS é cancelada e as peças voltam ao estoque; o Billing cancela o orçamento |
+| Pagamento não aprovado | — | Nada a desfazer: a OS segue aguardando pagamento e o cliente tenta de novo |
 
-Roda em todo `push` na `main` e em toda `pull_request` ([`ci.yml`](.github/workflows/ci.yml)):
+O pagamento acontece **na entrega**, depois da execução. Assim, uma falha na execução nunca exige estorno em dinheiro.
 
-```mermaid
-flowchart TB
-    Trigger(["push (main) / pull_request"])
+### Eventos deste serviço
 
-    Trigger --> Lint["lint\nRuboCop"]
-    Trigger --> Test["test\nRSpec + Postgres (service container)"]
-    Trigger -.-> ScanRuby["scan_ruby\nbrakeman + bundler-audit"]
-    Trigger -.-> ScanExtra["scan_extra\nTrivy + Semgrep"]
+| Publica | Quando |
+| :--- | :--- |
+| `work_order.diagnosed` | O diagnóstico é concluído (OS aguardando aprovação) |
+| `work_order.approved` | O orçamento foi aprovado e o estoque baixado |
+| `work_order.cancelled` | A OS é cancelada (estoque insuficiente ou falha na execução) |
 
-    Test --> Coverage["Cobertura de linha/branch\n>= 80%, verificada pelo SimpleCov"]
+| Consome | Reação |
+| :--- | :--- |
+| `quote.approved` | Baixa o estoque e aprova a OS (ou cancela, se faltar peça) |
+| `quote.rejected` | Marca a OS como rejeitada |
+| `execution.started` | OS em execução |
+| `execution.completed` | OS concluída, aguardando pagamento |
+| `execution.failed` | Cancela a OS e devolve as peças |
+| `payment.approved` | OS paga, liberada para entrega |
 
-    classDef active fill:#9bb8ff,stroke:#5470c6,color:#000
-    classDef disabled fill:#dddddd,stroke:#999999,color:#555,stroke-dasharray: 5 5
+Status da OS: `received → diagnosing → awaiting_approval → approved → in_progress → completed (aguardando pagamento) → paid → delivered`, com as saídas `rejected` e `cancelled`.
 
-    class Lint,Test,Coverage active
-    class ScanRuby,ScanExtra disabled
-```
-
-> `scan_ruby` e `scan_extra` estão temporariamente desativados (`if: false` em `ci.yml`) — mantidos no workflow para reativação futura. Detalhes de cada scanner: [`docs/fase1/security.md`](docs/fase1/security.md).
-
-### Fluxo de deploy (CD)
-
-```mermaid
-flowchart TB
-    Trigger(["Disparo MANUAL (workflow_dispatch)\ncredenciais AWS Academy como input"]) --> Provision["Provisiona o ECR\nterraform apply"]
-    Provision --> Read["Lê eks_cluster_name / rds_address\ndo SSM (k8s-infra / db-infra)"]
-    Read --> Build["Build & push da imagem\nECR, tag = SHA do commit"]
-    Build --> Deploy["Deploy no Kubernetes\nmigrations (Job) + web/jobs/service/hpa"]
-    Deploy --> Publish["Publica rails_api_base_url no SSM\n(para o auth-serverless)"]
-    Publish --> Destroy["Autodestruição de segurança\nsleep 2h → limpa workloads + ECR"]
-
-    classDef manual fill:#ffd38c,stroke:#e58e00,color:#000
-    classDef step fill:#9bb8ff,stroke:#5470c6,color:#000
-    classDef danger fill:#ffcccc,stroke:#cc4444,color:#000
-    class Trigger manual
-    class Provision,Read,Build,Deploy,Publish step
-    class Destroy danger
-```
-
-Este repositório é o **3º na ordem de deploy do projeto**: `k8s-infra → db-infra → api (este repo) → auth-serverless` — ou dispare todos de uma vez via o [`deploy-orchestrator`](https://github.com/FIAP-15SOAT-GabrielHelton/deploy-orchestrator). O deploy **nunca dispara sozinho**: é sempre acionado manualmente na aba **Actions → CD Deploy (App on EKS) → Run workflow**, informando as credenciais temporárias da sessão AWS Academy — mesma lógica do destroy manual imediato ([`cd_destroy.yml`](.github/workflows/cd_destroy.yml)). Detalhe de cada etapa: [`cd_deploy.yml`](.github/workflows/cd_deploy.yml) — ambos compartilham a lógica de destruição via a composite action [`infra-destroy`](.github/actions/infra-destroy/action.yml).
+Decisões e alternativas avaliadas: [RFC-005](docs/fase4/RFC-005-microsservicos-e-saga.md).
 
 ## Execução local
 
-Apenas Docker é necessário:
+Só o Docker é necessário:
 
 ```bash
-git clone git@github.com:FIAP-15SOAT-GabrielHelton/api.git
-cd api
 cp .env.example .env
-docker compose build
+docker compose up -d --wait db rabbitmq
 docker compose run --rm web bin/rails db:prepare
-docker compose up
+docker compose up web consumer
 ```
 
-A API sobe em `http://localhost:3000` (Swagger em `/api-docs`). Detalhes de setup, credenciais de teste e troubleshooting: [`docs/fase1/README.md`](docs/fase1/README.md).
+A API sobe em `http://localhost:3000`. O serviço `consumer` (`bin/consumer`) é o processo que escuta os eventos da Saga. Usuário de desenvolvimento: `admin@oficina.local` / `oficina123`.
 
-Para testar o fluxo completo de autenticação por CPF + API Gateway localmente (Lambdas do `auth-serverless` contra esta API Rails), veja o [README do `auth-serverless`](https://github.com/FIAP-15SOAT-GabrielHelton/auth-serverless#desenvolvimento-local).
-
-## Deploy em Kubernetes
-
-O deploy real acontece via GitHub Actions (aba **Actions → CD Deploy (App on EKS) → Run workflow**), informando as credenciais temporárias da sessão AWS Academy — **depois** que `k8s-infra` e `db-infra` já tiverem sido implantados. Para rodar manualmente contra um cluster já provisionado:
-
-```bash
-aws eks update-kubeconfig --name oficina-mecanica-cluster --region us-east-1
-
-kubectl apply -f k8s/configmap.yaml -f k8s/secrets.yaml
-kubectl apply -f k8s/db-prepare-job.yaml
-kubectl wait --for=condition=complete --timeout=300s job/oficina-mecanica-db-prepare
-
-kubectl apply -f k8s/web-deployment.yaml -f k8s/jobs-deployment.yaml -f k8s/service.yaml -f k8s/hpa.yaml
-
-kubectl get svc oficina-mecanica-web-service   # EXTERNAL-IP é a URL pública (http://, porta 80)
-```
-
-> `k8s/configmap.yaml` e `k8s/secrets.yaml` contêm placeholders (`DATABASE_HOST_PLACEHOLDER`, `DATABASE_PASSWORD_PLACEHOLDER`, `SECRET_KEY_BASE_PLACEHOLDER`, `IMAGE_PLACEHOLDER`) — o workflow de CD os substitui automaticamente com `sed` a partir do SSM Parameter Store e dos GitHub Secrets. Para aplicar manualmente, substitua-os antes.
-
-Em produção, a URL pública real do sistema é a do **API Gateway** (repositório `auth-serverless`), não a do `Service` acima — o ELB deste repositório é um destino interno do `HTTP_PROXY` do Gateway.
-
-### Testando o autoscaling (HPA)
-
-```bash
-bin/test_hpa.sh start     # gera carga real contra o Service e acompanha o HPA em tempo real
-bin/test_hpa.sh status    # snapshot único do HPA/pods/CPU, sem gerar carga
-bin/test_hpa.sh stop      # remove o gerador de carga manualmente
-```
-
-O script sobe um `Deployment` auxiliar (`busybox`) batendo em `/up`, mostra `kubectl get hpa`/`top pods` em loop e remove tudo automaticamente ao encerrar com `Ctrl+C`.
-
-### Gerando tráfego de demonstração (New Relic)
-
-```bash
-bin/generate_demo_traffic.sh <URL_DO_API_GATEWAY> [CICLOS]
-```
-
-**Por que existe:** os dashboards do New Relic (volume diário de OS, tempo médio por etapa, falhas de processamento) só mostram algo relevante depois que o sistema processa tráfego real. Sem esse script, seria preciso operar a aplicação manualmente por vários ciclos completos (autenticação → diagnóstico → orçamento → execução → entrega) só para gerar dados suficientes para o vídeo de demonstração.
-
-**O que faz:** roda `CICLOS` ciclos completos (padrão: 4) do fluxo de negócio de ponta a ponta contra a URL informada — login de staff, autenticação de cliente por CPF, criação de OS, diagnóstico, orçamento, aprovação, execução, entrega e consulta de tracking público — alternando entre os dois clientes do seed padrão. A cada ciclo também dispara **uma falha proposital diferente** (OS inexistente, senha errada, CPF inválido, RBAC negado, transição de estado inválida), de forma determinística e rotativa, para popular o widget de "falhas/erros de integração" do dashboard sem exigir teste manual de cada cenário de erro. Ao final, faz algumas chamadas ao healthcheck público (`/up`).
-
-**Como rodar:** requer `curl` e `jq`, e assume os dados do seed padrão (`db/seeds.rb`: usuários `admin`/`mechanic` e os clientes de exemplo, cada um com pelo menos um veículo). Deve ser apontado para a URL pública do **API Gateway** (não para o Service do Kubernetes diretamente), já que os cenários de autenticação de cliente por CPF passam pela Lambda do [`auth-serverless`](https://github.com/FIAP-15SOAT-GabrielHelton/auth-serverless):
-
-```bash
-bin/generate_demo_traffic.sh https://<api-id>.execute-api.us-east-1.amazonaws.com 5
-```
-
-Os dados levam de 1 a 3 minutos para aparecer no New Relic (APM/eventos de negócio) e cerca de 1 minuto para as métricas de Kubernetes (`nri-kubernetes`). Este script é independente do CI/CD — não é chamado por nenhum workflow, é uma ferramenta manual de preparação para a gravação do vídeo demonstrativo.
-
-## Provisionamento da infraestrutura (Terraform)
-
-Este repositório só provisiona o **ECR** — pré-requisito: os repositórios [`k8s-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/k8s-infra) e [`db-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/db-infra) precisam ter sido implantados antes (publicam `eks_cluster_name`/`rds_address` no SSM, lidos em tempo de deploy).
-
-```bash
-cd infra/
-terraform init \
-  -backend-config="bucket=<nome-do-bucket-s3>" \
-  -backend-config="key=oficina-mecanica/terraform.tfstate" \
-  -backend-config="region=us-east-1"
-
-terraform plan
-terraform apply
-
-terraform output ecr_repository_url
-```
-
-Ao final do uso, destrua os recursos para não consumir os créditos do AWS Academy:
-
-```bash
-terraform destroy
-```
-
-No pipeline de CI/CD, esses passos são automáticos — incluindo a limpeza de imagens do ECR e a espera pela liberação física do Load Balancer antes do `destroy`, feita na composite action [`infra-destroy`](.github/actions/infra-destroy/action.yml).
+Para o fluxo completo, suba também o `billing-service` (porta 3001) e o `execution-service` (porta 3002), apontando os três para o mesmo RabbitMQ.
 
 ## Documentação da API
 
-- **Swagger UI** (ambiente local): [`http://localhost:3000/api-docs`](http://localhost:3000/api-docs)
-- **Swagger UI** (ambiente implantado): `http://<EXTERNAL-IP-do-Service>/api-docs` (ou, via o API Gateway em produção, `<url-do-api-gateway>/api-docs`)
-- Spec OpenAPI versionada: [`swagger/v1/swagger.json`](swagger/v1/swagger.json)
-- Walkthrough completo via `curl` cobrindo o ciclo de vida de uma OS: [`docs/fase1/demo.md`](docs/fase1/demo.md)
-- Walkthrough via `curl` dos endpoints da Fase 2 (webhooks, rejeição direta, listagem priorizada): [`docs/fase2/demo.md`](docs/fase2/demo.md)
-- Autenticação de cliente por CPF e RBAC: exemplos de request/response na [RFC-001 §5](docs/fase3/RFC-001-authentication-authorization-serverless.md)
-- Walkthrough via `curl` da autenticação por CPF, geração de JWT e RBAC nas rotas protegidas: [`docs/fase3/demo-video-curl.md`](docs/fase3/demo-video-curl.md)
+- Swagger UI: `http://localhost:3000/api-docs` (ou `http://<endereço-do-serviço>/api-docs` no ambiente implantado).
+- Spec OpenAPI versionada: [`swagger/v1/swagger.json`](swagger/v1/swagger.json).
 
-## Vídeo demonstrativo
-
-_[Youtube](https://www.youtube.com/watch?v=uv2nZvj7HSk)_ — gravado na Fase 2 (deploy, CI/CD, consumo das APIs e HPA sob carga). Ainda não há um vídeo específico da Fase 3.
-
-## Monitoramento e Observabilidade
-
-Ferramenta: **New Relic** (APM + Infrastructure + dashboard/alertas como código). Cobertura:
-
-- **APM na API Rails** (`newrelic_rpm`) — latência, throughput, erros e distributed tracing.
-- **Extensão Lambda** nas duas funções do [`auth-serverless`](https://github.com/FIAP-15SOAT-GabrielHelton/auth-serverless) (`auth_customer`, `lambda_authorizer`).
-- **New Relic Infrastructure** (`nri-kubernetes`, via Helm no [`k8s-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/k8s-infra)) — CPU/memória do cluster EKS.
-- **Logs estruturados em JSON** correlacionados por `request_id`/`trace.id`, do API Gateway até o banco (ver [nota técnica no diagrama de sequência](docs/fase3/architecture/sequence-diagrams.md)).
-- **Eventos de negócio customizados** — duração da OS por etapa (diagnóstico, execução, finalização) e falhas de processamento de OS/orçamentos, usados no dashboard e nas condições de alerta.
-- **Dashboard e policy de alertas** (latência elevada, falhas no processamento de OS, indisponibilidade do healthcheck) provisionados via Terraform (provider `newrelic`) no [`k8s-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/k8s-infra).
-
-Detalhes de arquitetura: [`docs/fase3/architecture/component-diagram.md`](docs/fase3/architecture/component-diagram.md#4-monitoramento). Justificativa da escolha da ferramenta: [ADR 11](docs/fase3/architecture/adr-log.md#adr-11-new-relic-como-ferramenta-de-observabilidade-e-monitoramento).
-
-## Segurança
-
-Mantido da Fase 1 sem alterações — bundler-audit, brakeman, Trivy, Semgrep, SonarQube e OWASP ZAP. Detalhes, exemplos de output e workflow de remediação: [`docs/fase1/security.md`](docs/fase1/security.md).
-
-## Testes
-
-RSpec com FactoryBot, Faker e shoulda-matchers:
+## Testes e qualidade
 
 ```bash
-docker compose exec web bundle exec rspec
+docker compose run --rm -e RAILS_ENV=test web bundle exec rspec
 ```
 
-Detalhes da estrutura de `spec/` e comandos por camada: [`docs/fase1/README.md`](docs/fase1/README.md#testes).
+- **Unitários e de integração:** RSpec, com cobertura mínima de 80% exigida pelo SimpleCov (hoje acima de 95%).
+- **BDD:** o fluxo completo da OS está descrito em Gherkin em [`spec/features/fluxo_da_ordem_de_servico.feature`](spec/features/fluxo_da_ordem_de_servico.feature) — da abertura à entrega com pagamento aprovado, e a compensação quando a execução falha.
+- **SonarQube Cloud:** [painel do projeto](https://sonarcloud.io/project/overview?id=FIAP-15SOAT-GabrielHelton_os-service), com quality gate no CI.
 
-## Documentação adicional
+## CI/CD
 
-| Documento | Conteúdo |
-| :--- | :--- |
-| [`docs/fase1/README.md`](docs/fase1/README.md) | README original da Fase 1: stack, arquitetura DDD, bounded contexts, comandos úteis, troubleshooting |
-| [`docs/fase1/event_storming.md`](docs/fase1/event_storming.md) | Event Storming dos 4 bounded contexts (diagramas Mermaid) |
-| [`docs/fase1/demo.md`](docs/fase1/demo.md) | Walkthrough via `curl` do ciclo de vida completo de uma OS |
-| [`docs/fase1/security.md`](docs/fase1/security.md) | Scanners de segurança (SAST/DAST), como rodar e remediar achados |
-| [`docs/fase2/README.md`](docs/fase2/README.md) | README original da Fase 2: Clean Code, infraestrutura Kubernetes/Terraform, HPA |
-| [`docs/fase2/demo.md`](docs/fase2/demo.md) | Walkthrough via `curl` dos endpoints refatorados/adicionados na Fase 2 |
-| [`docs/fase3/RFC-001`](docs/fase3/RFC-001-authentication-authorization-serverless.md) | Autenticação via CPF, RBAC, arquitetura serverless e separação em 5 repositórios (ADRs 1-7) |
-| [`docs/fase3/RFC-002`](docs/fase3/RFC-002-escolha-da-nuvem.md) | Escolha do provedor de nuvem (AWS/AWS Academy) e suas implicações arquiteturais |
-| [`docs/fase3/RFC-003`](docs/fase3/RFC-003-escolha-do-banco-e-modelo.md) | Escolha do banco de dados (PostgreSQL), diagrama ER completo e explicação dos relacionamentos |
-| [`docs/fase3/RFC-004`](docs/fase3/RFC-004-escolha-da-observabilidade.md) | Escolha da ferramenta de observabilidade (New Relic vs. Datadog vs. Prometheus/Grafana vs. CloudWatch) |
-| [`docs/fase3/architecture/component-diagram.md`](docs/fase3/architecture/component-diagram.md) | Diagrama de componentes completo: nuvem, APIs, banco e monitoramento (atravessa os 5 repositórios) |
-| [`docs/fase3/architecture/sequence-diagrams.md`](docs/fase3/architecture/sequence-diagrams.md) | Diagramas de sequência: autenticação por CPF, rota protegida (RBAC) e abertura de Ordem de Serviço |
-| [`docs/fase3/architecture/adr-log.md`](docs/fase3/architecture/adr-log.md) | ADRs 8-12: padrão de comunicação (REST síncrono), uso de HPA, Clean Architecture/DDD, escolha do New Relic, organização de logs/traces |
+- **CI** ([`ci.yml`](.github/workflows/ci.yml)): a cada PR, roda RuboCop, os testes e a análise do SonarQube. A `main` é protegida: só recebe código por PR com `lint` e `test` verdes.
+- **CD** ([`cd_deploy.yml`](.github/workflows/cd_deploy.yml)): cria o repositório de imagens (Terraform), publica a imagem e implanta no EKS — migrations, `web`, `jobs`, `consumer`, Service e HPA (manifests em [`k8s/`](k8s/)). É disparado manualmente porque as credenciais da AWS Academy são temporárias; o [`deploy-orchestrator-fase4`](https://github.com/FIAP-15SOAT-GabrielHelton/deploy-orchestrator-fase4) dispara todos os repositórios na ordem certa.
 
-## Repositórios do projeto (Fase 3)
+## Observabilidade
 
-| Repositório | Responsabilidade |
-| :--- | :--- |
-| `api` (este repositório) | Aplicação Rails, ECR e deploy no cluster |
-| [`k8s-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/k8s-infra) | VPC + EKS + node group |
-| [`db-infra`](https://github.com/FIAP-15SOAT-GabrielHelton/db-infra) | RDS PostgreSQL |
-| [`auth-serverless`](https://github.com/FIAP-15SOAT-GabrielHelton/auth-serverless) | API Gateway (porta de entrada única) + Lambdas de autenticação/RBAC |
-| [`deploy-orchestrator`](https://github.com/FIAP-15SOAT-GabrielHelton/deploy-orchestrator) | Dispara e aguarda o deploy dos 4 repositórios acima, em ordem |
+New Relic, mantido da Fase 3: APM com rastreamento distribuído entre os três serviços e métricas do cluster. A configuração do agente está em [`config/newrelic.yml`](config/newrelic.yml); o dashboard e os alertas são criados pelo `k8s-infra-fase4`.
+
+## Limitações conhecidas
+
+- A publicação de eventos é best-effort após o commit: se o RabbitMQ estiver fora no momento, o evento se perde. O próximo passo seria um transactional outbox.
+- RabbitMQ e MongoDB rodam no cluster sem volume persistente; servem ao ambiente efêmero da AWS Academy.
