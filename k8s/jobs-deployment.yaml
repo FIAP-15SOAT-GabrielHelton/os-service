@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: oficina-mecanica-jobs
+  name: os-service-jobs
   namespace: default
   labels:
-    app: oficina-mecanica-jobs
+    app: os-service-jobs
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: oficina-mecanica-jobs
+      app: os-service-jobs
   template:
     metadata:
       labels:
-        app: oficina-mecanica-jobs
+        app: os-service-jobs
     spec:
       # O pod não fala com a API do Kubernetes; sem token da service account montado.
       automountServiceAccountToken: false
@@ -29,52 +29,9 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
-          env:
-            - name: RAILS_ENV
-              valueFrom:
-                configMapKeyRef:
-                  name: oficina-mecanica-config
-                  key: RAILS_ENV
-            - name: DATABASE_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: oficina-mecanica-config
-                  key: DATABASE_HOST
-            - name: DATABASE_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: oficina-mecanica-config
-                  key: DATABASE_PORT
-            - name: DATABASE_USERNAME
-              valueFrom:
-                configMapKeyRef:
-                  name: oficina-mecanica-config
-                  key: DATABASE_USERNAME
-            - name: OFICINA_MECANICA_DATABASE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: oficina-mecanica-secrets
-                  key: OFICINA_MECANICA_DATABASE_PASSWORD
-            - name: SECRET_KEY_BASE
-              valueFrom:
-                secretKeyRef:
-                  name: oficina-mecanica-secrets
-                  key: SECRET_KEY_BASE
-            - name: APP_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: oficina-mecanica-config
-                  key: APP_HOST
-                  optional: true
-            - name: SENDGRID_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: oficina-mecanica-secrets
-                  key: SENDGRID_API_KEY
-                  optional: true
-            - name: NEW_RELIC_LICENSE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: oficina-mecanica-secrets
-                  key: NEW_RELIC_LICENSE_KEY
-                  optional: true
+          # Toda a configuração vem do ConfigMap e do Secret deste serviço (o Secret é criado pelo cd_deploy.yml).
+          envFrom:
+            - configMapRef:
+                name: os-service-config
+            - secretRef:
+                name: os-service-secrets

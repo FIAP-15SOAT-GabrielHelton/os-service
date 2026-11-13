@@ -21,7 +21,7 @@ on:
 
 # cancel-in-progress: true cancela o job auto-destroy do cd_deploy.yml ao acionar este workflow.
 concurrency:
-  group: oficina-mecanica-api
+  group: oficina-mecanica-os-service
   cancel-in-progress: true
 
 jobs:
