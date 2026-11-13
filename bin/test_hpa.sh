@@ -5,9 +5,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 NAMESPACE="default"
-SERVICE_NAME="oficina-mecanica-web-service"
-DEPLOYMENT_LABEL="app=oficina-mecanica-web"
-HPA_NAME="oficina-mecanica-hpa"
+SERVICE_NAME="os-service-web"
+DEPLOYMENT_LABEL="app=os-service-web"
+HPA_NAME="os-service-hpa"
 LOAD_GEN_NAME="load-generator"
 TARGET_PATH="/up"
 DEFAULT_REPLICAS=3
@@ -133,7 +133,7 @@ case "$COMMAND" in
     cat <<EOF
 Usage: $0 [COMMAND] [REPLICAS]
 
-Testa o HorizontalPodAutoscaler (oficina-mecanica-hpa) gerando carga real
+Testa o HorizontalPodAutoscaler (os-service-hpa) gerando carga real
 contra o Service interno e acompanhando o scaling em tempo real.
 
 Commands:

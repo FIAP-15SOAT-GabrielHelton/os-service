@@ -1,0 +1,38 @@
+# Consome os eventos da Saga (fila os-service no RabbitMQ).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: os-service-consumer
+  namespace: default
+  labels:
+    app: os-service-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: os-service-consumer
+  template:
+    metadata:
+      labels:
+        app: os-service-consumer
+    spec:
+      # O pod não fala com a API do Kubernetes; sem token da service account montado.
+      automountServiceAccountToken: false
+      containers:
+        - name: consumer
+          image: IMAGE_PLACEHOLDER
+          imagePullPolicy: Always
+          command: ["bin/consumer"]
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          # Toda a configuração vem do ConfigMap e do Secret deste serviço (o Secret é criado pelo cd_deploy.yml).
+          envFrom:
+            - configMapRef:
+                name: os-service-config
+            - secretRef:
+                name: os-service-secrets

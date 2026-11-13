@@ -1,4 +1,4 @@
-name: CD Deploy (App on EKS)
+name: CD Deploy (OS Service on EKS)
 
 # Disparo manual — as credenciais AWS Academy são passadas como inputs porque
 # tokens de sessão expiram em ~4h e não podem ser armazenados como secrets fixos.
@@ -21,7 +21,7 @@ on:
 # Garante que apenas uma execução rode por vez. Acionar o cd_destroy.yml
 # cancela este workflow imediatamente via o mesmo concurrency group.
 concurrency:
-  group: oficina-mecanica-api
+  group: oficina-mecanica-os-service
   cancel-in-progress: true
 
 jobs:
@@ -85,7 +85,7 @@ jobs:
           cd infra/
           terraform init \
             -backend-config="bucket=$TF_BUCKET" \
-            -backend-config="key=oficina-mecanica/terraform.tfstate" \
+            -backend-config="key=oficina-mecanica/os-service.tfstate" \
             -backend-config="region=us-east-1"
 
           terraform apply -auto-approve
@@ -115,10 +115,8 @@ jobs:
 
           echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
 
-      # Realiza o deploy no EKS em 3 fases:
-      # 1. Substitui os placeholders dos manifests com os valores reais do ambiente
-      # 2. Roda as migrations via Job (aguarda conclusão antes de avançar)
-      # 3. Sobe os workloads (web, jobs, service, HPA)
+      # Deploy no EKS: configuração, migrations via Job (aguarda concluir) e workloads
+      # (web, jobs, consumer da Saga, service e HPA).
       - name: Deploy to Kubernetes
         env:
           RDS_HOST: ${{ steps.ssm.outputs.RDS_HOST }}
@@ -126,37 +124,35 @@ jobs:
           IMAGE_URI: ${{ steps.docker.outputs.image_uri }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
-          QUOTE_WEBHOOK_TOKEN: ${{ secrets.QUOTE_WEBHOOK_TOKEN }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
           NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
         run: |
           aws eks update-kubeconfig --name "$CLUSTER_NAME" --region us-east-1
 
-          # Secrets são base64-encoded pois o campo data: do K8s Secret exige isso
-          DB_PASSWORD_B64=$(echo -n "$DB_PASSWORD" | base64 -w 0)
-          SECRET_KEY_BASE_B64=$(echo -n "$SECRET_KEY_BASE" | base64 -w 0)
-          QUOTE_WEBHOOK_TOKEN_B64=$(echo -n "$QUOTE_WEBHOOK_TOKEN" | base64 -w 0)
-          NEW_RELIC_LICENSE_KEY_B64=$(echo -n "$NEW_RELIC_LICENSE_KEY" | base64 -w 0)
-
-          # Substitui os placeholders dos manifests com os valores reais
           sed -i "s|DATABASE_HOST_PLACEHOLDER|$RDS_HOST|g" k8s/configmap.yaml
-          sed -i "s|DATABASE_PASSWORD_PLACEHOLDER|$DB_PASSWORD_B64|g" k8s/secrets.yaml
-          sed -i "s|SECRET_KEY_BASE_PLACEHOLDER|$SECRET_KEY_BASE_B64|g" k8s/secrets.yaml
-          sed -i "s|QUOTE_WEBHOOK_TOKEN_PLACEHOLDER|$QUOTE_WEBHOOK_TOKEN_B64|g" k8s/secrets.yaml
-          sed -i "s|NEW_RELIC_LICENSE_KEY_PLACEHOLDER|$NEW_RELIC_LICENSE_KEY_B64|g" k8s/secrets.yaml
-          sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_URI|g" k8s/web-deployment.yaml
-          sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_URI|g" k8s/jobs-deployment.yaml
-          sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_URI|g" k8s/db-prepare-job.yaml
+          sed -i "s|IMAGE_PLACEHOLDER|$IMAGE_URI|g" k8s/*-deployment.yaml k8s/db-prepare-job.yaml
 
-          # Aplica configurações de ambiente antes dos workloads
-          kubectl apply -f k8s/configmap.yaml -f k8s/secrets.yaml
+          # Configuração antes dos workloads. O Secret é gerado aqui, a partir dos secrets do
+          # repositório (DB_PASSWORD é a senha do usuário os_service, não a master do RDS).
+          kubectl apply -f k8s/configmap.yaml
+          kubectl create secret generic os-service-secrets \
+            --from-literal=OFICINA_MECANICA_DATABASE_PASSWORD="$DB_PASSWORD" \
+            --from-literal=SECRET_KEY_BASE="$SECRET_KEY_BASE" \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --from-literal=RABBITMQ_URL="amqp://oficina:${RABBITMQ_PASSWORD}@rabbitmq:5672" \
+            --from-literal=NEW_RELIC_LICENSE_KEY="$NEW_RELIC_LICENSE_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-          # Deleta o job anterior (se existir) e roda db:prepare — cria/migra todos os databases
-          kubectl delete job oficina-mecanica-db-prepare --ignore-not-found=true
+          # Deleta o job anterior (se existir) e roda db:prepare — carrega o schema/migra os bancos
+          kubectl delete job os-service-db-prepare --ignore-not-found=true
           kubectl apply -f k8s/db-prepare-job.yaml
-          kubectl wait --for=condition=complete --timeout=300s job/oficina-mecanica-db-prepare
+          kubectl wait --for=condition=complete --timeout=300s job/os-service-db-prepare
 
-          # Sobe os workloads da aplicação
-          kubectl apply -f k8s/web-deployment.yaml -f k8s/jobs-deployment.yaml -f k8s/service.yaml -f k8s/hpa.yaml
+          # Sobe os workloads; o restart garante que os pods releiam o Secret/ConfigMap.
+          kubectl apply -f k8s/web-deployment.yaml -f k8s/jobs-deployment.yaml -f k8s/consumer-deployment.yaml -f k8s/service.yaml -f k8s/hpa.yaml
+          kubectl rollout restart deployment/os-service-web deployment/os-service-jobs deployment/os-service-consumer
+          kubectl rollout status deployment/os-service-web deployment/os-service-consumer --timeout=300s
 
       # Publica o hostname público do ELB no SSM para o repositório
       # auth-serverless usar como target do HTTP_PROXY do API Gateway.
@@ -165,7 +161,7 @@ jobs:
       - name: Publish Rails API URL to SSM
         run: |
           for i in $(seq 1 30); do
-            HOSTNAME=$(kubectl get svc oficina-mecanica-web-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            HOSTNAME=$(kubectl get svc os-service-web -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
             if [ -n "$HOSTNAME" ]; then
               break
             fi

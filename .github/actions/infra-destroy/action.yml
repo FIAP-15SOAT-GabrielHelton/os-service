@@ -61,7 +61,7 @@ runs:
 
         if [ -n "$CLUSTER_NAME" ] && aws eks update-kubeconfig --name "$CLUSTER_NAME" --region us-east-1 2>/dev/null; then
           echo "Conectado ao EKS. Limpando recursos..."
-          kubectl delete hpa/oficina-mecanica-hpa svc/oficina-mecanica-web-service deployment/oficina-mecanica-web deployment/oficina-mecanica-jobs job/oficina-mecanica-db-prepare secret/oficina-mecanica-secrets configmap/oficina-mecanica-config --ignore-not-found=true
+          kubectl delete hpa/os-service-hpa svc/os-service-web deployment/os-service-web deployment/os-service-jobs deployment/os-service-consumer job/os-service-db-prepare secret/os-service-secrets configmap/os-service-config --ignore-not-found=true
 
           # Aguarda a AWS liberar fisicamente o Load Balancer antes do destroy do k8s-infra
           echo "Aguardando 120s para a AWS liberar fisicamente o Load Balancer e IPs..."
@@ -80,18 +80,18 @@ runs:
         cd infra/
         terraform init \
           -backend-config="bucket=$TF_BUCKET" \
-          -backend-config="key=oficina-mecanica/terraform.tfstate" \
+          -backend-config="key=oficina-mecanica/os-service.tfstate" \
           -backend-config="region=us-east-1"
 
         echo "Esvaziando repositório ECR antes do destroy..."
         IMAGE_IDS=$(aws ecr list-images \
-          --repository-name oficina-mecanica \
+          --repository-name os-service \
           --region us-east-1 \
           --query 'imageIds[*]' \
           --output json 2>/dev/null || echo "[]")
         if [ "$IMAGE_IDS" != "[]" ] && [ "$IMAGE_IDS" != "null" ] && [ -n "$IMAGE_IDS" ]; then
           aws ecr batch-delete-image \
-            --repository-name oficina-mecanica \
+            --repository-name os-service \
             --region us-east-1 \
             --image-ids "$IMAGE_IDS"
         fi

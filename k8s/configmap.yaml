@@ -1,10 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: oficina-mecanica-config
+  name: os-service-config
   namespace: default
 data:
   RAILS_ENV: "production"
   DATABASE_HOST: "DATABASE_HOST_PLACEHOLDER"
   DATABASE_PORT: "5432"
-  DATABASE_USERNAME: "postgres"
+  # Usuário próprio do serviço no RDS, criado pelo db-infra-fase4 (não enxerga os bancos do Billing).
+  DATABASE_USERNAME: "os_service"
+  # Chamada REST interna ao Billing (API Composition), pelo DNS do cluster.
+  BILLING_SERVICE_URL: "http://billing-service-web"
