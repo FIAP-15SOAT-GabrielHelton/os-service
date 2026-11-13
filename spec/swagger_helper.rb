@@ -23,7 +23,7 @@ RSpec.configure do |config|
     'v1/swagger.json' => {
       openapi: '3.0.1',
       info: {
-        title: 'API V1',
+        title: 'OS Service API',
         version: 'v1'
       },
       paths: {},

@@ -3,7 +3,7 @@
 | Metadado | Detalhe |
 | :--- | :--- |
 | **Título** | Divisão do monolito em 3 microsserviços com Saga coreografada |
-| **Status** | `PROPOSTO` |
+| **Status** | `IMPLEMENTADO` |
 | **Autor(es)** | FIAP 15SOAT - Grupo 161 |
 | **Data** | 12 de Novembro de 2026 |
 | **Contexto** | Tech Challenge - Fase 4 (microsserviços, Saga Pattern, CI/CD por serviço) |
@@ -83,7 +83,7 @@ sequenceDiagram
 | `billing-service` (novo) | Recebe `quotes`; integra o Mercado Pago |
 | `execution-service` (novo) | Recebe a execução; persiste em MongoDB |
 | `k8s-infra-fase4` | Adiciona RabbitMQ e MongoDB ao cluster |
-| `db-infra-fase4` | Adiciona o banco do Billing |
+| `db-infra-fase4` | Cria um usuário e bancos isolados para o OS e para o Billing na mesma instância RDS |
 | `deploy-orchestrator-fase4` | Inclui os dois serviços novos na sequência de deploy |
 | `auth-serverless-fase4` | Sem mudança |
 
@@ -95,6 +95,6 @@ sequenceDiagram
 - [x] 4. Compensações da Saga
 - [x] 5. Mercado Pago no `billing-service`
 - [x] 6. Remover do `os-service` o que migrou para os outros serviços
-- [ ] 7. Por serviço: cobertura de 80%, um fluxo em BDD, Sonar, CI/CD, `main` protegida
-- [ ] 8. Infra: RabbitMQ, MongoDB, banco do Billing, orquestrador
+- [x] 7. Por serviço: cobertura de 80%, um fluxo em BDD, Sonar, CI/CD, `main` protegida
+- [x] 8. Infra: RabbitMQ, MongoDB, banco do Billing, orquestrador
 - [ ] 9. READMEs, diagrama final, PDF e vídeo
