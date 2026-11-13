@@ -72,8 +72,9 @@ runs:
 
         aws ssm delete-parameter --name /oficina-mecanica/rails_api_base_url 2>/dev/null || true
 
-    # O aws_ecr_repository falha no terraform destroy se ainda houver imagens —
-    # force_destroy não existe no provider hashicorp/aws, então esvaziamos via CLI.
+    # O aws_ecr_repository falha no terraform destroy se ainda houver imagens. Apagar imagem por
+    # imagem não basta: o build gera um índice com manifests filhos, que sobram no repositório.
+    # Por isso o repositório é removido com --force via CLI, e o terraform destroy só limpa o state.
     - name: Destroy ECR
       shell: bash
       run: |
@@ -83,17 +84,6 @@ runs:
           -backend-config="key=oficina-mecanica/os-service.tfstate" \
           -backend-config="region=us-east-1"
 
-        echo "Esvaziando repositório ECR antes do destroy..."
-        IMAGE_IDS=$(aws ecr list-images \
-          --repository-name os-service \
-          --region us-east-1 \
-          --query 'imageIds[*]' \
-          --output json 2>/dev/null || echo "[]")
-        if [ "$IMAGE_IDS" != "[]" ] && [ "$IMAGE_IDS" != "null" ] && [ -n "$IMAGE_IDS" ]; then
-          aws ecr batch-delete-image \
-            --repository-name os-service \
-            --region us-east-1 \
-            --image-ids "$IMAGE_IDS"
-        fi
+        aws ecr delete-repository --repository-name os-service --region us-east-1 --force >/dev/null 2>&1 || true
 
         terraform destroy -auto-approve
