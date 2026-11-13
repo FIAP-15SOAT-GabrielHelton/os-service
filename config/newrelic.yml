@@ -5,7 +5,7 @@
 common: &default_settings
   license_key: <%= ENV["NEW_RELIC_LICENSE_KEY"] %>
   agent_enabled: <%= !ENV["NEW_RELIC_LICENSE_KEY"].to_s.empty? %>
-  app_name: Oficina Mecanica API (<%= ENV.fetch("RAILS_ENV", "development") %>)
+  app_name: Oficina Mecanica OS Service (<%= ENV.fetch("RAILS_ENV", "development") %>)
   log_level: info
 
   distributed_tracing:
