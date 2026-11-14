@@ -1,4 +1,4 @@
-# OS Service — 15SOAT - Fase 4 - Tech Challenge - Grupo 161
+# OS Service — 15SOAT - Fase 4 - Tech Challenge - Grupo 183
 
 Microsserviço de **Ordens de Serviço** da Oficina Mecânica. Na Fase 4 o monolito da Fase 3 foi dividido em três microsserviços que se comunicam por eventos, com o fluxo da OS coordenado por uma **Saga coreografada**. Este repositório é o ponto de partida do fluxo: cadastros, estoque, abertura, diagnóstico, status e entrega da OS.
 

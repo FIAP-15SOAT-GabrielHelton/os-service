@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Título** | Divisão do monolito em 3 microsserviços com Saga coreografada |
 | **Status** | `IMPLEMENTADO` |
-| **Autor(es)** | FIAP 15SOAT - Grupo 161 |
+| **Autor(es)** | FIAP 15SOAT - Grupo 183 |
 | **Data** | 12 de Novembro de 2026 |
 | **Contexto** | Tech Challenge - Fase 4 (microsserviços, Saga Pattern, CI/CD por serviço) |
 | **Repositórios afetados** | `os-service` (cópia do `api` da Fase 3), `billing-service` (novo), `execution-service` (novo), `k8s-infra-fase4`, `db-infra-fase4`, `deploy-orchestrator-fase4`, `auth-serverless-fase4` |
